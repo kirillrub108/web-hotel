@@ -55,6 +55,10 @@ useHead({ title: 'Контакты — Тихая гавань' })
         </div>
       </div>
 
+      <p v-else class="notice notice--error">
+        Не удалось загрузить контакты. Обновите страницу через минуту.
+      </p>
+
       <p class="cta">
         <NuxtLink class="button" to="/rooms">Выбрать номер</NuxtLink>
       </p>

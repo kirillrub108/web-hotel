@@ -22,3 +22,25 @@ export interface Room {
   image: string
   is_available: boolean
 }
+
+export type BookingStatus = 'new' | 'confirmed' | 'cancelled'
+
+export interface AdminBooking {
+  id: number
+  room_id: number
+  guest_name: string
+  phone: string
+  email: string
+  check_in: string
+  check_out: string
+  guests: number
+  comment: string | null
+  status: BookingStatus
+  created_at: string
+  room: { slug: string, name: string }
+}
+
+export interface AdminBookingPage {
+  items: AdminBooking[]
+  total: number
+}

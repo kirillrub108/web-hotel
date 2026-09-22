@@ -6,11 +6,13 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hotel}
       POSTGRES_DB: ${POSTGRES_DB:-hotel}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hotel} -d ${POSTGRES_DB:-hotel}"]
+      # -h 127.0.0.1: проверка по TCP. Через unix-сокет pg_isready отвечает «готово» ещё во время
+      # первичной инициализации, когда временный сервер TCP не слушает.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${POSTGRES_USER:-hotel} -d ${POSTGRES_DB:-hotel}"]
       interval: 5s
       timeout: 5s
       retries: 12
@@ -19,10 +21,16 @@ services:
     build: ./backend
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-hotel}:${POSTGRES_PASSWORD:-hotel}@db:5432/${POSTGRES_DB:-hotel}
-    # Порядок важен: сид создаёт таблицы и наполняет базу до старта приложения.
-    command: sh -c "python seed.py && uvicorn app.main:app --reload --host 0.0.0.0"
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      SECRET_KEY: ${SECRET_KEY:-}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      # uvicorn берёт IP клиента из X-Forwarded-For, который выставляет прокси во frontend.
+      FORWARDED_ALLOW_IPS: "*"
+    # Порядок важен: миграции создают схему, сид наполняет пустую базу, затем стартует приложение.
+    command: sh -c "alembic upgrade head && python seed.py && uvicorn app.main:app --reload --host 0.0.0.0"
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     volumes:
       - ./backend:/app
     depends_on:
@@ -33,6 +41,7 @@ services:
     build: ./frontend
     environment:
       API_BASE: http://backend:8000
+      WATCH_POLLING: ${WATCH_POLLING:-true}
     ports:
       - "3000:3000"
     volumes:

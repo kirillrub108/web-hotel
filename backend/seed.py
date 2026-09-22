@@ -1,9 +1,6 @@
-import time
-
 from sqlalchemy import func, select
-from sqlalchemy.exc import OperationalError
 
-from app.database import Base, SessionLocal, engine
+from app.database import SessionLocal
 from app.models import Hotel, Room
 
 HOTEL = {
@@ -155,23 +152,8 @@ ROOMS = [
 ]
 
 
-def wait_for_db(attempts: int = 30, delay: float = 1.0) -> None:
-    """Compose ждёт healthcheck, но контейнер БД может быть занят первичной инициализацией."""
-    for attempt in range(1, attempts + 1):
-        try:
-            with engine.connect():
-                return
-        except OperationalError:
-            if attempt == attempts:
-                raise
-            print(f"База данных ещё не готова, попытка {attempt} из {attempts}")
-            time.sleep(delay)
-
-
 def seed() -> None:
-    wait_for_db()
-    Base.metadata.create_all(engine)
-
+    """Наполняет пустую базу. Таблицы к этому моменту уже созданы командой `alembic upgrade head`."""
     with SessionLocal() as session:
         if session.scalar(select(func.count(Room.id))):
             print("База уже заполнена, сид пропущен")

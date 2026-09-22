@@ -9,7 +9,7 @@ const query = computed(() => ({
   ...(maxPrice.value ? { max_price: maxPrice.value } : {}),
 }))
 
-const { data: rooms, status } = await useFetch<Room[]>('/api/rooms', { query })
+const { data: rooms, status, error } = await useFetch<Room[]>('/api/rooms', { query })
 
 const hasFilters = computed(() => capacity.value > 0 || maxPrice.value > 0)
 
@@ -61,6 +61,10 @@ useHead({ title: 'Номера — Тихая гавань' })
       </form>
 
       <p v-if="status === 'pending'" class="hint">Подбираем номера…</p>
+
+      <p v-else-if="error" class="notice notice--error">
+        Не удалось загрузить номера. Обновите страницу через минуту или позвоните нам.
+      </p>
 
       <div v-else-if="rooms && rooms.length" class="grid">
         <RoomCard v-for="room in rooms" :key="room.id" :room="room" />

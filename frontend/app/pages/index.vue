@@ -2,7 +2,7 @@
 import type { Hotel, Room } from '~/types'
 
 const { data: hotel } = await useFetch<Hotel>('/api/hotel', { key: 'hotel' })
-const { data: rooms } = await useFetch<Room[]>('/api/rooms', { key: 'rooms-all' })
+const { data: rooms, error: roomsError } = await useFetch<Room[]>('/api/rooms', { key: 'rooms-all' })
 
 const popular = computed(() => (rooms.value ?? []).slice(0, 3))
 
@@ -63,7 +63,10 @@ useHead({ title: 'Тихая гавань — гостиница в Яросла
       <div class="container">
         <h2>Популярные номера</h2>
         <p class="section__lead">Три варианта, которые чаще всего выбирают наши гости.</p>
-        <div class="grid">
+        <p v-if="roomsError" class="notice notice--error">
+          Не удалось загрузить номера. Обновите страницу через минуту.
+        </p>
+        <div v-else class="grid">
           <RoomCard v-for="room in popular" :key="room.id" :room="room" />
         </div>
         <p class="more">

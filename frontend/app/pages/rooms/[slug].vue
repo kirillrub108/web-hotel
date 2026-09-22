@@ -4,10 +4,12 @@ import type { Room } from '~/types'
 const route = useRoute()
 const slug = route.params.slug as string
 
-const { data: room } = await useFetch<Room>('/api/rooms/' + slug)
+const { data: room, error } = await useFetch<Room>('/api/rooms/' + slug)
 
 if (!room.value) {
-  throw createError({ statusCode: 404, statusMessage: 'Номер не найден', fatal: true })
+  throw error.value?.statusCode === 404
+    ? createError({ statusCode: 404, message: 'Номер не найден', fatal: true })
+    : createError({ statusCode: 503, message: 'Сайт временно недоступен', fatal: true })
 }
 
 useHead({ title: room.value.name + ' — Тихая гавань' })

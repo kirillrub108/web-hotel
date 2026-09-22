@@ -1,7 +1,8 @@
 from datetime import date, datetime
+from enum import StrEnum
 
 from sqlalchemy import JSON, Date, DateTime, ForeignKey, String, Text, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
@@ -35,11 +36,19 @@ class Room(Base):
     is_available: Mapped[bool] = mapped_column(default=True)
 
 
+class BookingStatus(StrEnum):
+    NEW = "new"
+    CONFIRMED = "confirmed"
+    CANCELLED = "cancelled"
+
+
+# Запрет пересечения подтверждённых заявок и CHECK-ограничения живут в миграции 0001:
+# EXCLUDE по daterange SQLAlchemy-моделью не описывается.
 class Booking(Base):
     __tablename__ = "bookings"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    room_id: Mapped[int] = mapped_column(ForeignKey("rooms.id"))
+    room_id: Mapped[int] = mapped_column(ForeignKey("rooms.id"), index=True)
     guest_name: Mapped[str] = mapped_column(String(120))
     phone: Mapped[str] = mapped_column(String(40))
     email: Mapped[str] = mapped_column(String(120))
@@ -47,4 +56,7 @@ class Booking(Base):
     check_out: Mapped[date] = mapped_column(Date)
     guests: Mapped[int]
     comment: Mapped[str | None] = mapped_column(Text, default=None)
+    status: Mapped[str] = mapped_column(String(20), default=BookingStatus.NEW)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    room: Mapped[Room] = relationship()
