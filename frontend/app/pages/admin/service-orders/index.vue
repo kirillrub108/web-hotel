@@ -104,20 +104,20 @@ useHead({
           </thead>
           <tbody>
             <tr v-for="order in data" :key="order.id">
-              <td class="nowrap">{{ formatDateTime(order.scheduled_at) }}</td>
-              <td>
+              <td data-label="Время" class="nowrap">{{ formatDateTime(order.scheduled_at) }}</td>
+              <td data-label="Услуга">
                 {{ order.service.title }}<template v-if="order.service.unit === 'per_item'"> × {{ order.quantity }}</template>
                 <br>
                 <span v-if="!order.service.is_active" class="muted">Услуга отключена</span>
                 <span v-else class="muted">{{ CATEGORY_LABELS[order.service.category] }}</span>
               </td>
-              <td class="nowrap">{{ formatRubles(order.total) }}</td>
-              <td>
+              <td data-label="Сумма" class="nowrap">{{ formatRubles(order.total) }}</td>
+              <td data-label="Номер и гость">
                 {{ order.booking.room.name }}, бронь №{{ order.booking.id }}<br>
                 <span class="muted">{{ order.booking.guest_name }}, {{ order.booking.phone }}</span>
               </td>
-              <td>{{ order.comment ?? '—' }}</td>
-              <td><StateBadge :status="order.status" :label="ORDER_STATUS_LABELS[order.status]" /></td>
+              <td data-label="Комментарий">{{ order.comment ?? '—' }}</td>
+              <td data-label="Статус"><StateBadge :status="order.status" :label="ORDER_STATUS_LABELS[order.status]" /></td>
               <td class="actions">
                 <button
                   v-for="action in ACTIONS[order.status]"
@@ -151,9 +151,13 @@ useHead({
   margin-bottom: var(--space-2);
 }
 
-.actions {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.filters .field {
+  flex: 1 1 100%;
+}
+
+@media (min-width: 640px) {
+  .filters .field {
+    flex: 0 1 auto;
+  }
 }
 </style>

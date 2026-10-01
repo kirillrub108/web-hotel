@@ -50,7 +50,7 @@ useHead({ title: 'Регистрация — Kivana' })
 
         <div class="field">
           <label for="email">Электронная почта</label>
-          <input id="email" v-model="form.email" type="email" autocomplete="email" required>
+          <input id="email" v-model="form.email" type="email" inputmode="email" autocomplete="email" required>
           <span v-if="fieldErrors.email" class="field__error">{{ fieldErrors.email }}</span>
         </div>
 

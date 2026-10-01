@@ -92,15 +92,15 @@ useHead({
           </thead>
           <tbody>
             <tr v-for="service in data" :key="service.id">
-              <td>
+              <td data-label="Услуга">
                 <strong>{{ service.title }}</strong><br>
                 <span class="muted">{{ service.slug }}</span>
               </td>
-              <td>{{ CATEGORY_LABELS[service.category] }}</td>
-              <td class="nowrap">{{ servicePriceLabel(service) }}</td>
-              <td>{{ service.sort_order }}</td>
-              <td>{{ service.is_active ? 'В каталоге' : 'Отключена' }}</td>
-              <td>{{ service.orders_count }}</td>
+              <td data-label="Категория">{{ CATEGORY_LABELS[service.category] }}</td>
+              <td data-label="Цена" class="nowrap">{{ servicePriceLabel(service) }}</td>
+              <td data-label="Порядок">{{ service.sort_order }}</td>
+              <td data-label="Состояние">{{ service.is_active ? 'В каталоге' : 'Отключена' }}</td>
+              <td data-label="Заказов">{{ service.orders_count }}</td>
               <td class="actions">
                 <button class="link-button" type="button" @click="editing = service">Изменить</button>
                 <button class="link-button" type="button" @click="toggle(service)">
@@ -148,12 +148,6 @@ useHead({
 .lead {
   margin: 0 0 var(--space-2);
   font-size: 0.92rem;
-}
-
-.actions {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
 }
 
 .hint {

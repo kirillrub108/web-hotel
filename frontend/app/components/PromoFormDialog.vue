@@ -88,7 +88,7 @@ async function submit(): Promise<void> {
 
       <div class="field">
         <label for="promo-code">Промокод</label>
-        <input id="promo-code" v-model="form.code" type="text" maxlength="32" autocomplete="off" placeholder="WELCOME10">
+        <input id="promo-code" v-model="form.code" type="text" maxlength="32" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="WELCOME10">
         <span v-if="errors.code" class="field__error">{{ errors.code }}</span>
         <span v-else class="dialog__hint">Латинские буквы, цифры, «-» и «_», от 3 до 32 символов. Регистр не важен.</span>
       </div>
@@ -115,7 +115,7 @@ async function submit(): Promise<void> {
         </div>
         <div class="field">
           <label for="promo-value">{{ form.kind === 'percent' ? 'Процент' : 'Сумма, ₽' }}</label>
-          <input id="promo-value" v-model.number="form.value" type="number" min="1" :max="form.kind === 'percent' ? 100 : undefined">
+          <input id="promo-value" v-model.number="form.value" type="number" inputmode="numeric" min="1" :max="form.kind === 'percent' ? 100 : undefined">
           <span v-if="errors.value" class="field__error">{{ errors.value }}</span>
         </div>
       </div>
@@ -137,7 +137,7 @@ async function submit(): Promise<void> {
       <div class="promo-row">
         <div class="field">
           <label for="promo-nights">Минимум ночей</label>
-          <input id="promo-nights" v-model.number="form.min_nights" type="number" min="1">
+          <input id="promo-nights" v-model.number="form.min_nights" type="number" inputmode="numeric" min="1">
           <span v-if="errors.min_nights" class="field__error">{{ errors.min_nights }}</span>
         </div>
         <div class="field">
@@ -172,12 +172,11 @@ async function submit(): Promise<void> {
 .promo-row {
   display: grid;
   gap: var(--space-2);
-  grid-template-columns: 1fr 1fr;
 }
 
-@media (max-width: 560px) {
+@media (min-width: 640px) {
   .promo-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
   }
 }
 </style>

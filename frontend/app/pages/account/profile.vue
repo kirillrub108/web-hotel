@@ -75,7 +75,7 @@ useHead({ title: 'Профиль — Kivana', meta: [{ name: 'robots', content: 
 
           <div class="field">
             <label for="phone">Телефон</label>
-            <input id="phone" v-model="profile.phone" type="tel" autocomplete="tel" placeholder="+7 900 000-00-00">
+            <input id="phone" v-model="profile.phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 900 000-00-00">
             <span v-if="profileErrors.phone" class="field__error">{{ profileErrors.phone }}</span>
           </div>
 
@@ -124,7 +124,7 @@ useHead({ title: 'Профиль — Kivana', meta: [{ name: 'robots', content: 
 <style scoped>
 .profile {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
   gap: var(--space-3);
   align-items: start;
 }

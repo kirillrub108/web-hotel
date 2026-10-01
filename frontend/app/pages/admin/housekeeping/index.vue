@@ -127,11 +127,11 @@ useHead({
             </thead>
             <tbody>
               <tr v-for="order in board.orders" :key="order.id">
-                <td class="nowrap">{{ formatDateTime(order.scheduled_at) }}</td>
-                <td>{{ order.service.title }}<template v-if="order.service.unit === 'per_item'"> × {{ order.quantity }}</template></td>
-                <td>{{ order.booking.room.name }}, {{ order.booking.guest_name }}</td>
-                <td>{{ order.comment ?? '—' }}</td>
-                <td><StateBadge :status="order.status" :label="ORDER_STATUS_LABELS[order.status]" /></td>
+                <td data-label="Время" class="nowrap">{{ formatDateTime(order.scheduled_at) }}</td>
+                <td data-label="Услуга">{{ order.service.title }}<template v-if="order.service.unit === 'per_item'"> × {{ order.quantity }}</template></td>
+                <td data-label="Номер и гость">{{ order.booking.room.name }}, {{ order.booking.guest_name }}</td>
+                <td data-label="Комментарий">{{ order.comment ?? '—' }}</td>
+                <td data-label="Статус"><StateBadge :status="order.status" :label="ORDER_STATUS_LABELS[order.status]" /></td>
               </tr>
             </tbody>
           </table>
@@ -159,11 +159,13 @@ useHead({
 
 .toolbar__date {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1);
 }
 
 .toolbar__date input {
+  min-height: var(--tap);
   padding: 8px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);

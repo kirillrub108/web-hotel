@@ -14,6 +14,21 @@ if (!room.value) {
 }
 
 useHead({ title: room.value.name + ' — Kivana' })
+
+// Липкая кнопка «Забронировать» нужна на телефоне, пока форма брони и подвал вне экрана.
+const aside = ref<HTMLElement | null>(null)
+const isAsideVisible = ref(false)
+const isFooterVisible = ref(false)
+const showStickyCta = computed(() => room.value?.is_available && !isAsideVisible.value && !isFooterVisible.value)
+
+onMounted(() => {
+  const observe = (el: Element | null | undefined, flag: Ref<boolean>) => {
+    if (!el) return
+    new IntersectionObserver(([entry]) => (flag.value = Boolean(entry?.isIntersecting))).observe(el)
+  }
+  observe(aside.value, isAsideVisible)
+  observe(document.querySelector('footer'), isFooterVisible)
+})
 </script>
 
 <template>
@@ -46,7 +61,7 @@ useHead({ title: room.value.name + ' — Kivana' })
           </p>
         </div>
 
-        <aside class="aside">
+        <aside id="booking" ref="aside" class="aside">
           <div v-if="!room.is_available" class="card gate">
             <h2>Номер недоступен</h2>
             <p>Мы подберём похожий вариант на ваши даты.</p>
@@ -75,6 +90,14 @@ useHead({ title: room.value.name + ' — Kivana' })
         </aside>
       </div>
     </div>
+
+    <div class="cta" :class="{ 'cta--visible': showStickyCta }">
+      <p class="cta__price">
+        {{ room.price_per_night.toLocaleString('ru-RU') }} ₽
+        <span class="cta__night">за ночь</span>
+      </p>
+      <a class="button" href="#booking">Забронировать</a>
+    </div>
   </section>
 </template>
 
@@ -86,14 +109,14 @@ useHead({ title: room.value.name + ' — Kivana' })
 
 .layout {
   display: grid;
-  gap: var(--space-4);
-  grid-template-columns: 1.4fr 1fr;
+  gap: var(--space-3);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
 }
 
 .photo {
   width: 100%;
-  height: 360px;
+  height: 220px;
   object-fit: cover;
   border-radius: var(--radius);
   margin-bottom: var(--space-3);
@@ -114,12 +137,11 @@ useHead({ title: room.value.name + ' — Kivana' })
 }
 
 .aside {
-  position: sticky;
-  top: 90px;
+  scroll-margin-top: 80px;
 }
 
 .gate {
-  padding: var(--space-3);
+  padding: var(--space-2);
 }
 
 .gate__note {
@@ -128,13 +150,79 @@ useHead({ title: room.value.name + ' — Kivana' })
   font-size: 0.92rem;
 }
 
-@media (max-width: 900px) {
+/* Липкая кнопка: только на телефоне и планшете, поверх подвала не лежит (скрывается при его появлении). */
+.cta {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) max(var(--space-2), var(--safe-right)) calc(var(--space-1) + var(--safe-bottom))
+    max(var(--space-2), var(--safe-left));
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 -4px 16px rgba(60, 40, 25, 0.1);
+  transform: translateY(100%);
+  visibility: hidden;
+  transition: transform 0.2s ease, visibility 0.2s;
+}
+
+.cta--visible {
+  transform: none;
+  visibility: visible;
+}
+
+.cta__price {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.cta__night {
+  display: block;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cta {
+    transition: none;
+  }
+}
+
+@media (min-width: 640px) {
+  .photo {
+    height: 300px;
+  }
+
+  .gate {
+    padding: var(--space-3);
+  }
+}
+
+@media (min-width: 1024px) {
   .layout {
-    grid-template-columns: 1fr;
+    gap: var(--space-4);
+    grid-template-columns: 1.4fr 1fr;
+  }
+
+  .photo {
+    height: 360px;
   }
 
   .aside {
-    position: static;
+    position: sticky;
+    top: 90px;
+  }
+
+  .cta {
+    display: none;
   }
 }
 </style>

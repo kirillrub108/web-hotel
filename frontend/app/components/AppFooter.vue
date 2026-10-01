@@ -33,7 +33,7 @@ const { data: hotel } = await useFetch<Hotel>('/api/hotel', { key: 'hotel' })
 <style scoped>
 .footer {
   margin-top: var(--space-5);
-  padding: var(--space-4) 0;
+  padding: var(--space-4) 0 calc(var(--space-4) + var(--safe-bottom));
   background: var(--text);
   color: var(--surface-warm);
 }
@@ -41,7 +41,7 @@ const { data: hotel } = await useFetch<Hotel>('/api/hotel', { key: 'hotel' })
 .footer__inner {
   display: grid;
   gap: var(--space-3);
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
 }
 
 .footer__title {
@@ -57,6 +57,13 @@ const { data: hotel } = await useFetch<Hotel>('/api/hotel', { key: 'hotel' })
 
 .footer a {
   color: var(--surface-warm);
+}
+
+@media (max-width: 1023.98px) {
+  .footer a {
+    display: inline-block;
+    padding: 10px 0;
+  }
 }
 
 .footer p {

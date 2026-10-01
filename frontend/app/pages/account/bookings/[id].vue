@@ -197,12 +197,18 @@ useHead({ title: 'Бронь — Kivana', meta: [{ name: 'robots', content: 'noi
 .layout {
   display: grid;
   gap: var(--space-3);
-  grid-template-columns: 1.3fr 1fr;
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
 }
 
 .block {
-  padding: var(--space-3);
+  padding: var(--space-2);
+}
+
+@media (min-width: 640px) {
+  .block {
+    padding: var(--space-3);
+  }
 }
 
 .block__head {
@@ -218,18 +224,7 @@ useHead({ title: 'Бронь — Kivana', meta: [{ name: 'robots', content: 'noi
 }
 
 .facts {
-  display: grid;
-  gap: 8px var(--space-2);
-  grid-template-columns: max-content 1fr;
   margin: var(--space-3) 0;
-}
-
-.facts dt {
-  color: var(--muted);
-}
-
-.facts dd {
-  margin: 0;
 }
 
 .cancel {
@@ -254,6 +249,10 @@ useHead({ title: 'Бронь — Kivana', meta: [{ name: 'robots', content: 'noi
   gap: var(--space-1);
   flex-wrap: wrap;
   margin-top: var(--space-1);
+}
+
+.cancel__actions .button {
+  flex: 1 1 auto;
 }
 
 .cancel__closed {
@@ -300,9 +299,9 @@ useHead({ title: 'Бронь — Kivana', meta: [{ name: 'robots', content: 'noi
   font-size: 0.95rem;
 }
 
-@media (max-width: 900px) {
+@media (min-width: 1024px) {
   .layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
   }
 }
 </style>

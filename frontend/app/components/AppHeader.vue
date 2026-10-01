@@ -4,7 +4,7 @@ const { user } = useCurrentUser()
 </script>
 
 <template>
-  <header class="header">
+  <header class="header" @keydown.esc="isMenuOpen = false">
     <div class="container header__inner">
       <NuxtLink to="/" class="header__logo" @click="isMenuOpen = false">
         Kivana
@@ -13,14 +13,15 @@ const { user } = useCurrentUser()
       <button
         class="header__toggle"
         type="button"
+        aria-controls="site-nav"
         :aria-expanded="isMenuOpen"
         aria-label="Меню"
         @click="isMenuOpen = !isMenuOpen"
       >
-        ☰
+        {{ isMenuOpen ? '✕' : '☰' }}
       </button>
 
-      <nav class="header__nav" :class="{ 'header__nav--open': isMenuOpen }">
+      <nav id="site-nav" class="header__nav" :class="{ 'header__nav--open': isMenuOpen }" aria-label="Основное меню">
         <NuxtLink to="/" @click="isMenuOpen = false">Главная</NuxtLink>
         <NuxtLink to="/rooms" @click="isMenuOpen = false">Номера</NuxtLink>
         <NuxtLink to="/services" @click="isMenuOpen = false">Услуги</NuxtLink>
@@ -34,10 +35,12 @@ const { user } = useCurrentUser()
 </template>
 
 <style scoped>
+/* Телефон: пункты меню прячутся за бургером и раскрываются списком под шапкой. */
 .header {
   position: sticky;
   top: 0;
   z-index: 10;
+  padding-top: var(--safe-top);
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
@@ -47,12 +50,15 @@ const { user } = useCurrentUser()
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: var(--space-2);
-  padding-top: var(--space-2);
-  padding-bottom: var(--space-2);
+  gap: 0 var(--space-2);
+  padding-top: 6px;
+  padding-bottom: 6px;
 }
 
 .header__logo {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--text);
@@ -65,21 +71,38 @@ const { user } = useCurrentUser()
 }
 
 .header__toggle {
-  display: none;
-  padding: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tap);
+  height: var(--tap);
+  padding: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface);
+  color: var(--text);
   font-size: 1.2rem;
   cursor: pointer;
 }
 
 .header__nav {
+  display: none;
+  width: 100%;
+  flex-direction: column;
+  max-height: calc(100dvh - var(--safe-top) - 64px);
+  overflow-y: auto;
+  padding-bottom: var(--space-1);
+}
+
+.header__nav--open {
   display: flex;
-  gap: var(--space-3);
 }
 
 .header__nav a {
+  display: flex;
+  align-items: center;
+  min-height: var(--tap);
+  border-top: 1px solid var(--border);
   color: var(--muted);
   font-weight: 600;
 }
@@ -90,21 +113,41 @@ const { user } = useCurrentUser()
   text-decoration: none;
 }
 
-@media (max-width: 700px) {
+@media (min-width: 640px) {
   .header__toggle {
-    display: block;
+    display: none;
   }
 
   .header__nav {
-    display: none;
-    width: 100%;
-    flex-direction: column;
-    gap: var(--space-1);
-    padding-bottom: var(--space-1);
+    display: flex;
+    width: auto;
+    flex-direction: row;
+    gap: var(--space-2);
+    max-height: none;
+    overflow: visible;
+    padding-bottom: 0;
   }
 
-  .header__nav--open {
-    display: flex;
+  .header__nav a {
+    border-top: 0;
+  }
+}
+
+@media (min-width: 1024px) and (pointer: fine) {
+  .header__inner {
+    padding-top: var(--space-2);
+    padding-bottom: var(--space-2);
+  }
+
+  .header__logo,
+  .header__nav a {
+    min-height: 0;
+  }
+}
+
+@media (min-width: 1024px) {
+  .header__nav {
+    gap: var(--space-3);
   }
 }
 </style>

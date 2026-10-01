@@ -52,7 +52,7 @@ async function submit(): Promise<void> {
 
       <div class="field">
         <label for="room-price">Цена за ночь, ₽</label>
-        <input id="room-price" v-model.number="form.price_per_night" type="number" min="1">
+        <input id="room-price" v-model.number="form.price_per_night" type="number" inputmode="numeric" min="1">
         <span v-if="errors.price_per_night" class="field__error">{{ errors.price_per_night }}</span>
       </div>
 

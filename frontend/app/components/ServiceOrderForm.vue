@@ -74,7 +74,7 @@ async function submit(): Promise<void> {
     <div class="order__row">
       <div v-if="hasQuantity" class="field">
         <label for="order-quantity">Количество</label>
-        <input id="order-quantity" v-model.number="form.quantity" type="number" min="1" :max="MAX_QUANTITY">
+        <input id="order-quantity" v-model.number="form.quantity" type="number" inputmode="numeric" min="1" :max="MAX_QUANTITY">
       </div>
       <div class="field">
         <label for="order-time">Дата и время</label>
@@ -119,7 +119,7 @@ async function submit(): Promise<void> {
 .order__row {
   display: grid;
   gap: var(--space-2);
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
 }
 
 .hint {

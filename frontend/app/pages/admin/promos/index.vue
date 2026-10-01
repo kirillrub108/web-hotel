@@ -118,22 +118,22 @@ useHead({
           </thead>
           <tbody>
             <tr v-for="promo in data" :key="promo.id">
-              <td class="nowrap"><strong>{{ promo.code }}</strong></td>
-              <td>
+              <td data-label="Код" class="nowrap"><strong>{{ promo.code }}</strong></td>
+              <td data-label="Акция">
                 {{ promo.title }}<br>
                 <span class="muted">{{ promoValueLabel(promo) }}</span>
               </td>
-              <td>
+              <td data-label="Для кого">
                 <NuxtLink v-if="promo.user" :to="`/admin/clients/${promo.user.id}`">{{ promo.user.full_name }}</NuxtLink>
                 <span v-else>Все клиенты</span>
               </td>
-              <td>
+              <td data-label="Условия">
                 <ul class="conditions">
                   <li v-for="condition in promoConditions(promo)" :key="condition">{{ condition }}</li>
                 </ul>
               </td>
-              <td>{{ promoStateLabel(promo, today) }}</td>
-              <td>{{ promo.bookings_count }}</td>
+              <td data-label="Состояние">{{ promoStateLabel(promo, today) }}</td>
+              <td data-label="Броней">{{ promo.bookings_count }}</td>
               <td class="actions">
                 <button class="link-button" type="button" @click="editing = promo">Изменить</button>
                 <button class="link-button" type="button" @click="toggle(promo)">
@@ -187,12 +187,6 @@ useHead({
 .conditions {
   margin: 0;
   padding-left: 18px;
-}
-
-.actions {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
 }
 
 .hint {

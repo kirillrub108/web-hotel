@@ -106,7 +106,7 @@ useHead({ title: 'Kivana — гостиница в Ярославле' })
 
 <style scoped>
 .hero {
-  padding: var(--space-5) 0;
+  padding: var(--space-4) 0;
   background: linear-gradient(160deg, #f6ece1 0%, #efe0d0 100%);
 }
 
@@ -133,8 +133,8 @@ useHead({ title: 'Kivana — гостиница в Ярославле' })
 
 .about {
   display: grid;
-  gap: var(--space-4);
-  grid-template-columns: 1.6fr 1fr;
+  gap: var(--space-3);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
 }
 
@@ -152,11 +152,16 @@ useHead({ title: 'Kivana — гостиница в Ярославле' })
   border-bottom: 1px solid var(--border);
 }
 
+.about__facts li strong {
+  text-align: right;
+}
+
 .about__facts li:last-child {
   border-bottom: 0;
 }
 
 .about__facts span {
+  white-space: nowrap;
   color: var(--muted);
 }
 
@@ -176,7 +181,7 @@ useHead({ title: 'Kivana — гостиница в Ярославле' })
 .contacts-short {
   display: grid;
   gap: var(--space-3);
-  grid-template-columns: 1.6fr 1fr;
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
 }
 
@@ -192,10 +197,18 @@ useHead({ title: 'Kivana — гостиница в Ярославле' })
   color: var(--muted);
 }
 
-@media (max-width: 800px) {
-  .about,
+@media (min-width: 640px) {
+  .hero {
+    padding: var(--space-5) 0;
+  }
+
+  .about {
+    gap: var(--space-4);
+    grid-template-columns: 1.6fr 1fr;
+  }
+
   .contacts-short {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1.6fr 1fr;
   }
 }
 </style>

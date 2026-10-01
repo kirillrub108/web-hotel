@@ -31,7 +31,7 @@ useHead({ title: 'Восстановление пароля — Kivana' })
           Если аккаунт с адресом <strong>{{ email }}</strong> существует, мы отправили на него ссылку для сброса пароля.
           Ссылка действует 1 час.
         </p>
-        <NuxtLink to="/login">Вернуться ко входу</NuxtLink>
+        <NuxtLink to="/login" class="form-card__back">Вернуться ко входу</NuxtLink>
       </div>
 
       <form v-else class="card form-card" @submit.prevent="submit">
@@ -40,7 +40,7 @@ useHead({ title: 'Восстановление пароля — Kivana' })
 
         <div class="field">
           <label for="email">Электронная почта</label>
-          <input id="email" v-model="email" type="email" autocomplete="email" required>
+          <input id="email" v-model="email" type="email" inputmode="email" autocomplete="email" required>
         </div>
 
         <p v-if="errorText" class="notice notice--error">{{ errorText }}</p>

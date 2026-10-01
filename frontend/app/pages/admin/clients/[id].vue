@@ -163,19 +163,19 @@ useHead({
             </thead>
             <tbody>
               <tr v-for="booking in data.bookings" :key="booking.id">
-                <td class="nowrap">№{{ booking.id }}<br><span class="muted">{{ formatDateTime(booking.created_at) }}</span></td>
-                <td>{{ booking.room.name }}</td>
-                <td class="nowrap">
+                <td data-label="Бронь" class="nowrap">№{{ booking.id }}<br><span class="muted">{{ formatDateTime(booking.created_at) }}</span></td>
+                <td data-label="Номер">{{ booking.room.name }}</td>
+                <td data-label="Даты" class="nowrap">
                   {{ formatDate(booking.check_in) }} — {{ formatDate(booking.check_out) }}<br>
                   <span class="muted">{{ nightsLabel(booking.nights) }}</span>
                 </td>
-                <td class="nowrap">
+                <td data-label="Сумма" class="nowrap">
                   {{ formatRubles(booking.total_price) }}
                   <template v-if="booking.promo">
                     <br><span class="muted">−{{ formatRubles(booking.discount) }}, {{ booking.promo.code }}</span>
                   </template>
                 </td>
-                <td><StatusBadge :status="booking.display_status" /></td>
+                <td data-label="Статус"><StatusBadge :status="booking.display_status" /></td>
                 <td><NuxtLink :to="{ path: '/admin', query: { status: booking.status } }">В заявках</NuxtLink></td>
               </tr>
             </tbody>
@@ -201,14 +201,14 @@ useHead({
             </thead>
             <tbody>
               <tr v-for="promo in data.promos" :key="promo.id">
-                <td class="nowrap"><strong>{{ promo.code }}</strong></td>
-                <td>{{ promo.title }}<br><span class="muted">{{ promoValueLabel(promo) }}</span></td>
-                <td>
+                <td data-label="Код" class="nowrap"><strong>{{ promo.code }}</strong></td>
+                <td data-label="Акция">{{ promo.title }}<br><span class="muted">{{ promoValueLabel(promo) }}</span></td>
+                <td data-label="Условия">
                   <ul class="conditions">
                     <li v-for="condition in promoConditions(promo)" :key="condition">{{ condition }}</li>
                   </ul>
                 </td>
-                <td>{{ promoStateLabel(promo, today) }}</td>
+                <td data-label="Состояние">{{ promoStateLabel(promo, today) }}</td>
                 <td>
                   <button class="link-button" type="button" @click="togglePromo(promo)">
                     {{ promo.is_active ? 'Деактивировать' : 'Включить' }}
@@ -257,7 +257,7 @@ h1 .tag {
 .top {
   display: grid;
   gap: var(--space-3);
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr));
   align-items: start;
 }
 
@@ -265,25 +265,16 @@ h1 .tag {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-3);
+  padding: var(--space-2);
+}
+
+@media (min-width: 640px) {
+  .block {
+    padding: var(--space-3);
+  }
 }
 
 .block h2 {
-  margin: 0;
-}
-
-.facts {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 8px var(--space-2);
-  margin: 0;
-}
-
-.facts dt {
-  color: var(--muted);
-}
-
-.facts dd {
   margin: 0;
 }
 
