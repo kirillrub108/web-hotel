@@ -23,6 +23,13 @@ export interface Room {
   is_available: boolean
 }
 
+// Тело изменения номера админом: PATCH принимает все поля сразу.
+export interface RoomForm {
+  price_per_night: number
+  description: string
+  is_available: boolean
+}
+
 export type BookingStatus = 'pending' | 'confirmed' | 'declined' | 'cancelled'
 
 // Статус для показа: «Проживание» и «Завершена» backend вычисляет из подтверждённой брони.

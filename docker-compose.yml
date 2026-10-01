@@ -29,6 +29,8 @@ services:
       MAIL_FROM: ${MAIL_FROM:-Kivana <no-reply@kivana.ru>}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@kivana.ru}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-tidy copper lantern orbit}
+      SEED_DEMO: ${SEED_DEMO:-true}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-silver harbor morning tea}
       PASSWORD_MIN_LENGTH: ${PASSWORD_MIN_LENGTH:-15}
       SESSION_TTL_GUEST_DAYS: ${SESSION_TTL_GUEST_DAYS:-14}
       SESSION_TTL_ADMIN_HOURS: ${SESSION_TTL_ADMIN_HOURS:-12}

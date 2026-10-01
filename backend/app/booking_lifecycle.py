@@ -3,21 +3,22 @@
 Статус брони меняет только change_status: она проверяет переход, пишет событие в журнал и ставит письмо гостю.
 Здесь же подтверждение создаёт уборки на проживание, а отмена подтверждённой брони снимает уборки и заказы услуг.
 """
+
 import os
 from collections.abc import Callable
 from datetime import date, datetime, timedelta
 
 from fastapi import BackgroundTasks, HTTPException, status
-from sqlalchemy import Select, select
+from sqlalchemy import Select, exists, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app import hotel_time
-from app.booking_rules import Reason
+from app.booking_rules import Reason, calculate_price, decide
 from app.housekeeping import create_stay_tasks, delete_planned_tasks
 from app.mail import Mail, send_mail
 from app.mail_templates import booking_cancelled_mail, booking_confirmed_mail, booking_declined_mail
-from app.models import Actor, Booking, BookingEvent, BookingStatus, Hotel
+from app.models import Actor, Booking, BookingEvent, BookingStatus, Hotel, Promo, Room, User
 from app.room_service import cancel_open_orders
 
 FREE_CANCEL_HOURS = int(os.getenv("FREE_CANCEL_HOURS", "48"))
@@ -174,6 +175,81 @@ def change_status(
 
     if to_status in STATUS_MAILS:
         background.add_task(send_mail, STATUS_MAILS[to_status](booking))
+
+
+def submit_booking(
+    db: Session,
+    background: BackgroundTasks,
+    user: User,
+    room: Room,
+    *,
+    guest_name: str,
+    phone: str,
+    check_in: date,
+    check_out: date,
+    guests: int,
+    comment: str | None,
+    promo: Promo | None,
+) -> Booking:
+    """Создаёт заявку и сразу применяет авто-решение: подтверждена, отклонена или осталась на рассмотрении.
+
+    Данные уже проверены вызывающим кодом (номер, вместимость, свободные даты, лимит заявок, промокод).
+    Факты для движка правил собираются здесь: сам decide() в базу не ходит. Не коммитит.
+    Заявка рождается в pending: событие создания пишется в журнал без письма, а гость получает ровно одно письмо —
+    об итоговом статусе. Письмо «на рассмотрении» отправляет вызывающий код.
+    """
+    today = hotel_time.hotel_today()
+    price = calculate_price(room.price_per_night, check_in, check_out, promo)
+    has_completed_stay = db.scalar(
+        select(
+            exists().where(
+                Booking.user_id == user.id,
+                Booking.status == BookingStatus.CONFIRMED,
+                Booking.check_out <= today,
+            )
+        )
+    )
+    has_pending_conflict = db.scalar(select(overlapping(room.id, check_in, check_out, BookingStatus.PENDING).exists()))
+    decision = decide(
+        crm_status=user.crm_status,
+        nights=price.nights,
+        total=price.total,
+        check_in=check_in,
+        today=today,
+        has_comment=comment is not None,
+        has_completed_stay=bool(has_completed_stay),
+        has_pending_conflict=bool(has_pending_conflict),
+    )
+
+    booking = Booking(
+        user=user,
+        room=room,
+        guest_name=guest_name,
+        phone=phone,
+        check_in=check_in,
+        check_out=check_out,
+        guests=guests,
+        comment=comment,
+        nights=price.nights,
+        price_per_night=price.price_per_night,
+        discount=price.discount,
+        total_price=price.total,
+        promo=promo,
+    )
+    db.add(booking)
+    on_review = decision.status == BookingStatus.PENDING
+    change_status(
+        db,
+        booking,
+        BookingStatus.PENDING,
+        Actor.GUEST,
+        background,
+        actor_user_id=user.id,
+        reason_codes=decision.reasons if on_review else [],
+    )
+    if not on_review:
+        change_status(db, booking, decision.status, Actor.SYSTEM, background, reason_codes=decision.reasons)
+    return booking
 
 
 def expire_stale_pending(db: Session, background: BackgroundTasks) -> None:

@@ -4,6 +4,7 @@ const route = useRoute()
 const LINKS = [
   { to: '/admin', label: 'Заявки' },
   { to: '/admin/clients', label: 'Клиенты' },
+  { to: '/admin/rooms', label: 'Номера' },
   { to: '/admin/promos', label: 'Акции' },
   { to: '/admin/services', label: 'Услуги' },
   { to: '/admin/service-orders', label: 'Заказы услуг' },
