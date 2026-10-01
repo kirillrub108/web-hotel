@@ -78,6 +78,12 @@ def require_user(user: User | None = Depends(get_current_user)) -> User:
     return user
 
 
+def require_verified_user(user: User = Depends(require_user)) -> User:
+    if user.email_verified_at is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Подтвердите email, чтобы бронировать номера")
+    return user
+
+
 def require_admin(user: User = Depends(require_user)) -> User:
     if user.role != UserRole.ADMIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Доступ только для администратора")

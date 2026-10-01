@@ -298,8 +298,8 @@ def test_reset_password_confirms_email(unverified_guest: User, client: TestClien
 def test_admin_api_requires_admin_role(client: TestClient, guest_client: TestClient, admin_client: TestClient) -> None:
     for caller, expected in ((client, 401), (guest_client, 403), (admin_client, 200)):
         assert caller.get("/api/admin/bookings").status_code == expected
-    assert client.patch("/api/admin/bookings/1", json={"status": "confirmed"}).status_code == 401
-    assert guest_client.patch("/api/admin/bookings/1", json={"status": "confirmed"}).status_code == 403
+    assert client.post("/api/admin/bookings/1/confirm", json={}).status_code == 401
+    assert guest_client.post("/api/admin/bookings/1/confirm", json={}).status_code == 403
 
 
 def test_profile(guest_client: TestClient, client: TestClient) -> None:

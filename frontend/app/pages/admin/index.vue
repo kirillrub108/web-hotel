@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import type { AdminBookingPage, BookingStatus } from '~/types'
+import type { AdminAction, AdminBooking, AdminBookingDetail, AdminBookingPage, BookingEvent, BookingStatus } from '~/types'
 
 const PAGE_SIZE = 20
 
-const statusLabels: Record<BookingStatus, string> = {
-  new: 'Новая',
-  confirmed: 'Подтверждена',
-  cancelled: 'Отменена',
-}
+// «На разборе» — первая вкладка и открывается по умолчанию: эти заявки ждут решения.
+const TABS: { value: BookingStatus | '', label: string }[] = [
+  { value: 'pending', label: 'На разборе' },
+  { value: 'confirmed', label: 'Подтверждённые' },
+  { value: 'declined', label: 'Отклонённые' },
+  { value: 'cancelled', label: 'Отменённые' },
+  { value: '', label: 'Все' },
+]
 
 const { clear } = useCurrentUser()
 
@@ -17,7 +20,7 @@ async function toLogin(): Promise<void> {
   await navigateTo({ path: '/login', query: { next: '/admin' } })
 }
 
-const statusFilter = ref<BookingStatus | ''>('')
+const statusFilter = ref<BookingStatus | ''>('pending')
 const page = ref(0)
 
 watch(statusFilter, () => {
@@ -39,28 +42,37 @@ if (error.value?.statusCode === 401) {
 const total = computed(() => data.value?.total ?? 0)
 const hasNextPage = computed(() => (page.value + 1) * PAGE_SIZE < total.value)
 
-const actionError = ref('')
-const busyId = ref<number | null>(null)
+const active = ref<{ booking: AdminBooking, action: AdminAction } | null>(null)
 
-async function setStatus(id: number, status: BookingStatus): Promise<void> {
-  actionError.value = ''
-  busyId.value = id
+async function onActionDone(): Promise<void> {
+  active.value = null
+  history.value = {}
+  await refresh()
+}
+
+// Заезд ещё не прошёл: подтверждённую бронь можно отменить до даты выезда.
+function canCancelConfirmed(item: AdminBooking): boolean {
+  return item.status === 'confirmed' && item.display_status !== 'completed'
+}
+
+// История заявки загружается по кнопке, чтобы список не тянул журнал всех броней.
+const history = ref<Record<number, BookingEvent[]>>({})
+const historyError = ref('')
+
+async function toggleHistory(id: number): Promise<void> {
+  historyError.value = ''
+  if (history.value[id]) {
+    const rest = { ...history.value }
+    delete rest[id]
+    history.value = rest
+    return
+  }
   try {
-    await $fetch(`/api/admin/bookings/${id}`, { method: 'PATCH', body: { status } })
-    await refresh()
+    const detail = await $fetch<AdminBookingDetail>(`/api/admin/bookings/${id}`)
+    history.value = { ...history.value, [id]: detail.events }
   }
   catch (err) {
-    const failure = err as { statusCode?: number, data?: { detail?: unknown } }
-    if (failure.statusCode === 401) {
-      await toLogin()
-      return
-    }
-    actionError.value = typeof failure.data?.detail === 'string'
-      ? failure.data.detail
-      : 'Не удалось изменить статус заявки'
-  }
-  finally {
-    busyId.value = null
+    historyError.value = apiErrorMessage(err, 'Не удалось загрузить историю заявки')
   }
 }
 
@@ -68,25 +80,6 @@ async function logout(): Promise<void> {
   await $fetch('/api/auth/logout', { method: 'POST' })
   clear()
   await navigateTo('/login')
-}
-
-function formatDate(isoDate: string): string {
-  return isoDate.split('-').reverse().join('.')
-}
-
-function nights(checkIn: string, checkOut: string): number {
-  return Math.round((Date.parse(checkOut) - Date.parse(checkIn)) / 86_400_000)
-}
-
-// Часовой пояс задан явно: иначе сервер (UTC) и браузер отрисуют разное время и гидратация разойдётся.
-function formatCreated(isoDateTime: string): string {
-  return new Date(isoDateTime).toLocaleString('ru-RU', {
-    timeZone: 'Europe/Moscow',
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
 }
 
 useHead({
@@ -100,18 +93,25 @@ useHead({
     <div class="container">
       <div class="toolbar">
         <h1>Заявки</h1>
-        <div class="toolbar__actions">
-          <select v-model="statusFilter" aria-label="Статус заявки">
-            <option value="">Все заявки</option>
-            <option value="new">Новые</option>
-            <option value="confirmed">Подтверждённые</option>
-            <option value="cancelled">Отменённые</option>
-          </select>
-          <button class="button button--ghost" type="button" @click="logout">Выйти</button>
-        </div>
+        <button class="button button--ghost" type="button" @click="logout">Выйти</button>
       </div>
 
-      <p v-if="actionError" class="notice notice--error">{{ actionError }}</p>
+      <div class="tabs" role="tablist" aria-label="Статус заявок">
+        <button
+          v-for="tab in TABS"
+          :key="tab.value"
+          class="tabs__item"
+          :class="{ 'tabs__item--active': statusFilter === tab.value }"
+          type="button"
+          role="tab"
+          :aria-selected="statusFilter === tab.value"
+          @click="statusFilter = tab.value"
+        >
+          {{ tab.label }}
+        </button>
+      </div>
+
+      <p v-if="historyError" class="notice notice--error">{{ historyError }}</p>
 
       <p v-if="error && error.statusCode !== 401" class="notice notice--error">
         Не удалось загрузить заявки. Обновите страницу через минуту.
@@ -125,53 +125,65 @@ useHead({
               <th>Номер</th>
               <th>Гость</th>
               <th>Даты</th>
-              <th>Гостей</th>
-              <th>Комментарий</th>
-              <th>Статус</th>
+              <th>Сумма</th>
+              <th>Статус и причины</th>
               <th />
             </tr>
           </thead>
           <tbody>
-            <tr v-for="item in data.items" :key="item.id">
-              <td class="nowrap">{{ formatCreated(item.created_at) }}</td>
-              <td>
-                <NuxtLink :to="'/rooms/' + item.room.slug">{{ item.room.name }}</NuxtLink>
-              </td>
-              <td>
-                <strong>{{ item.guest_name }}</strong><br>
-                <a :href="'tel:' + item.phone.replace(/[^+\d]/g, '')">{{ item.phone }}</a><br>
-                <a :href="'mailto:' + item.email">{{ item.email }}</a>
-              </td>
-              <td class="nowrap">
-                {{ formatDate(item.check_in) }} — {{ formatDate(item.check_out) }}<br>
-                <span class="muted">ночей: {{ nights(item.check_in, item.check_out) }}</span>
-              </td>
-              <td>{{ item.guests }}</td>
-              <td class="comment">{{ item.comment || '—' }}</td>
-              <td>
-                <span class="status" :class="'status--' + item.status">{{ statusLabels[item.status] }}</span>
-              </td>
-              <td class="actions">
-                <button
-                  v-if="item.status !== 'confirmed'"
-                  class="button button--small"
-                  type="button"
-                  :disabled="busyId === item.id"
-                  @click="setStatus(item.id, 'confirmed')"
-                >
-                  Подтвердить
-                </button>
-                <button
-                  v-if="item.status !== 'cancelled'"
-                  class="button button--ghost button--small"
-                  type="button"
-                  :disabled="busyId === item.id"
-                  @click="setStatus(item.id, 'cancelled')"
-                >
-                  Отменить
-                </button>
-              </td>
-            </tr>
+            <template v-for="item in data.items" :key="item.id">
+              <tr>
+                <td class="nowrap">№{{ item.id }}<br><span class="muted">{{ formatDateTime(item.created_at) }}</span></td>
+                <td>
+                  <NuxtLink :to="'/rooms/' + item.room.slug">{{ item.room.name }}</NuxtLink>
+                </td>
+                <td>
+                  <strong>{{ item.guest_name }}</strong>
+                  <span v-if="item.user.crm_status !== 'regular'" class="tag crm">{{ CRM_LABELS[item.user.crm_status] }}</span><br>
+                  <a :href="'tel:' + item.phone.replace(/[^+\d]/g, '')">{{ item.phone }}</a><br>
+                  <a :href="'mailto:' + item.user.email">{{ item.user.email }}</a>
+                </td>
+                <td class="nowrap">
+                  {{ formatDate(item.check_in) }} — {{ formatDate(item.check_out) }}<br>
+                  <span class="muted">{{ nightsLabel(item.nights) }}, гостей: {{ item.guests }}</span>
+                </td>
+                <td class="nowrap">{{ formatRubles(item.total_price) }}</td>
+                <td class="reasons">
+                  <StatusBadge :status="item.display_status" />
+                  <ul v-if="item.reasons.length">
+                    <li v-for="reason in item.reasons" :key="reason">{{ reason }}</li>
+                  </ul>
+                  <p v-if="item.reason_codes.length" class="codes">{{ item.reason_codes.join(', ') }}</p>
+                  <p v-if="item.comment" class="comment">«{{ item.comment }}»</p>
+                </td>
+                <td class="actions">
+                  <template v-if="item.status === 'pending'">
+                    <button class="button button--small" type="button" @click="active = { booking: item, action: 'confirm' }">
+                      Подтвердить
+                    </button>
+                    <button class="button button--ghost button--small" type="button" @click="active = { booking: item, action: 'decline' }">
+                      Отклонить
+                    </button>
+                  </template>
+                  <button
+                    v-if="item.status === 'pending' || canCancelConfirmed(item)"
+                    class="button button--ghost button--small"
+                    type="button"
+                    @click="active = { booking: item, action: 'cancel' }"
+                  >
+                    Отменить
+                  </button>
+                  <button class="link-button" type="button" @click="toggleHistory(item.id)">
+                    {{ history[item.id] ? 'Скрыть историю' : 'История' }}
+                  </button>
+                </td>
+              </tr>
+              <tr v-if="history[item.id]" class="history">
+                <td colspan="7">
+                  <BookingTimeline :events="history[item.id] ?? []" />
+                </td>
+              </tr>
+            </template>
           </tbody>
         </table>
       </div>
@@ -192,6 +204,15 @@ useHead({
         </button>
       </div>
     </div>
+
+    <AdminActionDialog
+      v-if="active"
+      :booking="active.booking"
+      :action="active.action"
+      @close="active = null"
+      @done="onActionDone"
+      @unauthorized="toLogin"
+    />
   </section>
 </template>
 
@@ -202,25 +223,34 @@ useHead({
   justify-content: space-between;
   gap: var(--space-2);
   flex-wrap: wrap;
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--space-2);
 }
 
 .toolbar h1 {
   margin: 0;
 }
 
-.toolbar__actions {
+.tabs {
   display: flex;
-  gap: var(--space-2);
+  gap: var(--space-1);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
 }
 
-.toolbar select {
-  padding: 11px 14px;
+.tabs__item {
+  padding: 8px 16px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 999px;
   background: var(--surface);
   color: var(--text);
   font: inherit;
+  cursor: pointer;
+}
+
+.tabs__item--active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
 }
 
 .table-wrap {
@@ -255,36 +285,33 @@ tbody tr:last-child td {
   white-space: nowrap;
 }
 
-.comment {
-  min-width: 180px;
-  max-width: 280px;
-}
-
 .muted {
   color: var(--muted);
 }
 
-.status {
-  display: inline-block;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 0.85rem;
-  white-space: nowrap;
+.crm {
+  margin-left: 6px;
 }
 
-.status--new {
-  background: var(--surface-warm);
-  color: var(--accent-dark);
+.reasons {
+  min-width: 220px;
+  max-width: 320px;
 }
 
-.status--confirmed {
-  background: #e7f3ec;
-  color: var(--success);
+.reasons ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
 }
 
-.status--cancelled {
-  background: #f1eeec;
+.codes,
+.comment {
+  margin: 6px 0 0;
   color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.codes {
+  font-family: ui-monospace, monospace;
 }
 
 .actions {
@@ -297,6 +324,21 @@ tbody tr:last-child td {
   padding: 6px 14px;
   font-size: 0.88rem;
   white-space: nowrap;
+}
+
+.link-button {
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--accent-dark);
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.history td {
+  background: var(--bg);
 }
 
 .empty {

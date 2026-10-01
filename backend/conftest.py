@@ -1,6 +1,6 @@
 import os
 from collections.abc import Callable, Iterator
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 from sqlalchemy.engine import make_url
@@ -18,13 +18,14 @@ import pytest  # noqa: E402
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
-from sqlalchemy import create_engine, text  # noqa: E402
+from sqlalchemy import create_engine, select, text  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
 from app import mail  # noqa: E402
+from app.booking_rules import calculate_price  # noqa: E402
 from app.database import engine, get_db  # noqa: E402
 from app.main import app  # noqa: E402
-from app.models import User, UserRole  # noqa: E402
+from app.models import Booking, BookingStatus, Room, User, UserRole  # noqa: E402
 from app.passwords import hash_password  # noqa: E402
 from app.security import account_limiters, booking_limiters, login_limiters  # noqa: E402
 from seed import seed  # noqa: E402
@@ -118,6 +119,41 @@ def unverified_guest(make_user: Callable[..., User]) -> User:
 @pytest.fixture
 def admin_user(make_user: Callable[..., User]) -> User:
     return make_user("boss@example.com", role=UserRole.ADMIN, full_name="Анна Смирнова")
+
+
+@pytest.fixture
+def make_booking(db: Session, guest: User) -> Callable[..., Booking]:
+    """Бронь в нужном статусе напрямую в базе, минуя функцию перехода и журнал: так готовятся исходные состояния."""
+
+    def create(
+        check_in: date,
+        check_out: date,
+        *,
+        status: BookingStatus = BookingStatus.PENDING,
+        user: User | None = None,
+        room_slug: str = "standart",
+    ) -> Booking:
+        room = db.scalars(select(Room).where(Room.slug == room_slug)).one()
+        price = calculate_price(room.price_per_night, check_in, check_out)
+        booking = Booking(
+            user=user or guest,
+            room=room,
+            guest_name="Иван Петров",
+            phone="+7 900 123-45-67",
+            check_in=check_in,
+            check_out=check_out,
+            guests=1,
+            status=status,
+            nights=price.nights,
+            price_per_night=price.price_per_night,
+            discount=price.discount,
+            total_price=price.total,
+        )
+        db.add(booking)
+        db.flush()
+        return booking
+
+    return create
 
 
 def login(email: str, password: str = PASSWORD) -> TestClient:

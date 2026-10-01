@@ -1,16 +1,15 @@
 <script setup lang="ts">
-import type { Room } from '~/types'
+import type { Booking, Quote, Room } from '~/types'
 
 const props = defineProps<{ room: Room }>()
 
-const today = new Date().toISOString().slice(0, 10)
-const MAX_CHECK_IN_ADVANCE_DAYS = 365
-const MAX_STAY_NIGHTS = 90
+const { user } = useCurrentUser()
+const today = hotelToday()
 
+// Имя и телефон предзаполняются из профиля; в брони они сохраняются снимком и их можно поправить.
 const form = reactive({
-  guest_name: '',
-  phone: '',
-  email: '',
+  guest_name: user.value?.full_name ?? '',
+  phone: user.value?.phone ?? '',
   check_in: '',
   check_out: '',
   guests: 1,
@@ -19,16 +18,45 @@ const form = reactive({
 
 const errors = ref<Record<string, string>>({})
 const serverError = ref('')
-const isSent = ref(false)
 const isSending = ref(false)
+const result = ref<Booking | null>(null)
 
-function daysBetween(from: string, to: string): number {
-  return Math.round((new Date(to).getTime() - new Date(from).getTime()) / 86400000)
-}
+const quote = ref<Quote | null>(null)
+const quoteError = ref('')
+let quoteRequest = 0
+
+// Живая котировка: при каждом изменении дат или числа гостей backend считает цену и проверяет даты.
+// Ответ устаревшего запроса отбрасывается по номеру, чтобы на экране не оказалась цена за прежние даты.
+watch(
+  () => [form.check_in, form.check_out, form.guests] as const,
+  async ([checkIn, checkOut, guests]) => {
+    quote.value = null
+    quoteError.value = ''
+    if (!checkIn || !checkOut || checkOut <= checkIn || guests < 1) {
+      return
+    }
+    const request = ++quoteRequest
+    try {
+      const fresh = await $fetch<Quote>(`/api/rooms/${props.room.slug}/quote`, {
+        query: { check_in: checkIn, check_out: checkOut, guests },
+      })
+      if (request === quoteRequest) {
+        quote.value = fresh
+      }
+    }
+    catch (error) {
+      if (request === quoteRequest) {
+        quoteError.value = apiErrorMessage(error, 'Не удалось рассчитать стоимость. Проверьте даты.')
+      }
+    }
+  },
+)
+
+// Даты проверяет котировка: отправить заявку можно, только когда она подтвердила, что номер свободен.
+const canSubmit = computed(() => quote.value?.available === true && !isSending.value)
 
 function validate(): boolean {
   const found: Record<string, string> = {}
-
   if (form.guest_name.trim().length < 2) {
     found.guest_name = 'Укажите имя полностью'
   }
@@ -36,31 +64,6 @@ function validate(): boolean {
   if (phoneDigits < 10 || phoneDigits > 15) {
     found.phone = 'Укажите телефон полностью, например +7 900 000-00-00'
   }
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email)) {
-    found.email = 'Проверьте адрес электронной почты'
-  }
-  if (!form.check_in) {
-    found.check_in = 'Выберите дату заезда'
-  }
-  else if (form.check_in < today) {
-    found.check_in = 'Дата заезда не может быть в прошлом'
-  }
-  else if (daysBetween(today, form.check_in) > MAX_CHECK_IN_ADVANCE_DAYS) {
-    found.check_in = 'Дата заезда не может быть позже, чем через год'
-  }
-  if (!form.check_out) {
-    found.check_out = 'Выберите дату выезда'
-  }
-  if (form.check_in && form.check_out && form.check_out <= form.check_in) {
-    found.check_out = 'Дата выезда должна быть позже даты заезда'
-  }
-  else if (form.check_in && form.check_out && daysBetween(form.check_in, form.check_out) > MAX_STAY_NIGHTS) {
-    found.check_out = `Максимальная длительность проживания — ${MAX_STAY_NIGHTS} ночей`
-  }
-  if (form.guests < 1 || form.guests > props.room.capacity) {
-    found.guests = 'Максимальное число гостей в номере — ' + props.room.capacity
-  }
-
   errors.value = found
   return Object.keys(found).length === 0
 }
@@ -73,22 +76,21 @@ async function submit(): Promise<void> {
 
   isSending.value = true
   try {
-    await $fetch('/api/bookings', {
+    result.value = await $fetch<Booking>('/api/bookings', {
       method: 'POST',
       body: {
         room_id: props.room.id,
         guest_name: form.guest_name.trim(),
         phone: form.phone.trim(),
-        email: form.email.trim(),
         check_in: form.check_in,
         check_out: form.check_out,
         guests: form.guests,
         comment: form.comment.trim() || null,
       },
     })
-    isSent.value = true
   }
   catch (error) {
+    errors.value = apiFieldErrors(error)
     serverError.value = apiErrorMessage(error, 'Не удалось отправить заявку. Попробуйте ещё раз или позвоните нам.')
   }
   finally {
@@ -99,15 +101,33 @@ async function submit(): Promise<void> {
 
 <template>
   <div class="card booking">
-    <h2>Заявка на бронирование</h2>
+    <template v-if="result">
+      <h2>Заявка отправлена</h2>
+      <p><StatusBadge :status="result.display_status" /></p>
 
-    <p v-if="isSent" class="notice notice--success">
-      Заявка принята. Мы перезвоним в течение рабочего дня и подтвердим бронь.
-    </p>
+      <template v-if="result.status === 'confirmed'">
+        <p>Бронь подтверждена: номер ждёт вас {{ formatDate(result.check_in) }}. Письмо с деталями отправили на {{ user?.email }}.</p>
+      </template>
+      <template v-else-if="result.status === 'pending'">
+        <p>Администратор проверит заявку вручную и ответит письмом. Почему понадобилась проверка:</p>
+        <ul class="booking__reasons">
+          <li v-for="reason in result.reasons" :key="reason">{{ reason }}</li>
+        </ul>
+      </template>
+      <template v-else>
+        <p>Не получилось подтвердить бронь:</p>
+        <ul class="booking__reasons">
+          <li v-for="reason in result.reasons" :key="reason">{{ reason }}</li>
+        </ul>
+      </template>
+
+      <NuxtLink class="button" :to="`/account/bookings/${result.id}`">Открыть бронь</NuxtLink>
+    </template>
 
     <form v-else novalidate @submit.prevent="submit">
+      <h2>Бронирование</h2>
       <p class="booking__lead">
-        Оплата не требуется: это предварительная заявка, администратор свяжется с вами.
+        Онлайн-оплата не нужна. Бронь на свободные даты обычно подтверждается сразу, в остальных случаях её проверит администратор.
       </p>
 
       <div class="field">
@@ -116,49 +136,50 @@ async function submit(): Promise<void> {
         <span v-if="errors.guest_name" class="field__error">{{ errors.guest_name }}</span>
       </div>
 
-      <div class="booking__row">
-        <div class="field">
-          <label for="phone">Телефон</label>
-          <input id="phone" v-model="form.phone" type="tel" autocomplete="tel" maxlength="40" placeholder="+7 900 000-00-00">
-          <span v-if="errors.phone" class="field__error">{{ errors.phone }}</span>
-        </div>
-
-        <div class="field">
-          <label for="email">Электронная почта</label>
-          <input id="email" v-model="form.email" type="email" autocomplete="email" maxlength="120">
-          <span v-if="errors.email" class="field__error">{{ errors.email }}</span>
-        </div>
+      <div class="field">
+        <label for="phone">Телефон</label>
+        <input id="phone" v-model="form.phone" type="tel" autocomplete="tel" maxlength="40" placeholder="+7 900 000-00-00">
+        <span v-if="errors.phone" class="field__error">{{ errors.phone }}</span>
       </div>
 
       <div class="booking__row">
         <div class="field">
           <label for="check_in">Заезд</label>
           <input id="check_in" v-model="form.check_in" type="date" :min="today">
-          <span v-if="errors.check_in" class="field__error">{{ errors.check_in }}</span>
         </div>
 
         <div class="field">
           <label for="check_out">Выезд</label>
           <input id="check_out" v-model="form.check_out" type="date" :min="form.check_in || today">
-          <span v-if="errors.check_out" class="field__error">{{ errors.check_out }}</span>
         </div>
       </div>
 
       <div class="field">
         <label for="guests">Гостей</label>
         <input id="guests" v-model.number="form.guests" type="number" min="1" :max="room.capacity">
-        <span v-if="errors.guests" class="field__error">{{ errors.guests }}</span>
       </div>
 
       <div class="field">
         <label for="comment">Комментарий</label>
         <textarea id="comment" v-model="form.comment" rows="3" maxlength="1000" placeholder="Ранний заезд, детская кроватка, парковка" />
+        <span class="booking__hint">С комментарием заявку проверит администратор.</span>
       </div>
+
+      <div v-if="quote" class="booking__quote" aria-live="polite">
+        <template v-if="quote.available">
+          <p>{{ nightsLabel(quote.nights) }} × {{ formatRubles(quote.price_per_night) }} = {{ formatRubles(quote.subtotal) }}</p>
+          <p v-if="quote.discount">Скидка: −{{ formatRubles(quote.discount) }}</p>
+          <p class="booking__total">Итого: {{ formatRubles(quote.total) }}</p>
+        </template>
+        <p v-else class="notice notice--error">{{ quote.unavailable_reason }}</p>
+      </div>
+      <p v-else-if="quoteError" class="notice notice--error" aria-live="polite">{{ quoteError }}</p>
+      <p v-else class="booking__hint">Выберите даты — покажем стоимость и проверим, свободен ли номер.</p>
 
       <p v-if="serverError" class="notice notice--error">{{ serverError }}</p>
 
-      <button class="button booking__submit" type="submit" :disabled="isSending">
-        {{ isSending ? 'Отправляем…' : 'Отправить заявку' }}
+      <button class="button booking__submit" type="submit" :disabled="!canSubmit">
+        {{ isSending ? 'Отправляем…' : 'Забронировать' }}
       </button>
     </form>
   </div>
@@ -169,9 +190,10 @@ async function submit(): Promise<void> {
   padding: var(--space-3);
 }
 
-.booking__lead {
+.booking__lead,
+.booking__hint {
   color: var(--muted);
-  font-size: 0.95rem;
+  font-size: 0.92rem;
 }
 
 .booking form {
@@ -184,6 +206,26 @@ async function submit(): Promise<void> {
   display: grid;
   gap: var(--space-2);
   grid-template-columns: 1fr 1fr;
+}
+
+.booking__quote {
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface-warm);
+}
+
+.booking__quote p {
+  margin: 0;
+}
+
+.booking__quote .booking__total {
+  margin-top: 6px;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.booking__reasons {
+  padding-left: 20px;
 }
 
 .booking__submit {

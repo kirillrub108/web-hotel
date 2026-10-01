@@ -33,6 +33,15 @@ services:
       SESSION_TTL_GUEST_DAYS: ${SESSION_TTL_GUEST_DAYS:-14}
       SESSION_TTL_ADMIN_HOURS: ${SESSION_TTL_ADMIN_HOURS:-12}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      HOTEL_TZ: ${HOTEL_TZ:-Europe/Moscow}
+      FREE_CANCEL_HOURS: ${FREE_CANCEL_HOURS:-48}
+      AUTO_CONFIRM_MAX_NIGHTS: ${AUTO_CONFIRM_MAX_NIGHTS:-7}
+      AUTO_CONFIRM_MAX_TOTAL: ${AUTO_CONFIRM_MAX_TOTAL:-60000}
+      AUTO_CONFIRM_MAX_LEAD_DAYS: ${AUTO_CONFIRM_MAX_LEAD_DAYS:-180}
+      MAX_STAY_NIGHTS: ${MAX_STAY_NIGHTS:-30}
+      MAX_LEAD_DAYS: ${MAX_LEAD_DAYS:-365}
+      MAX_PENDING_PER_CLIENT: ${MAX_PENDING_PER_CLIENT:-3}
+      ADMIN_NOTIFY_EMAIL: ${ADMIN_NOTIFY_EMAIL:-}
       # uvicorn берёт IP клиента из X-Forwarded-For, который выставляет прокси во frontend.
       FORWARDED_ALLOW_IPS: "*"
     # Порядок важен: миграции создают схему, сид добавляет данные и администратора, затем стартует приложение.
