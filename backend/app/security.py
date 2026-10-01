@@ -1,50 +1,19 @@
 import hashlib
-import hmac
-import os
 import secrets
 import time
 from collections import defaultdict
 
 from fastapi import HTTPException, Request, status
 
-ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
-# Без заданного ключа он генерируется при старте: безопасно, но сессии администратора сбрасываются при перезапуске.
-SECRET_KEY = (os.getenv("SECRET_KEY") or secrets.token_hex(32)).encode()
-COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"
 
-SESSION_COOKIE = "admin_session"
-SESSION_TTL_SECONDS = 12 * 60 * 60
+def new_token() -> tuple[str, str]:
+    """Случайный токен для cookie или ссылки из письма и его sha256: в БД хранится только хэш."""
+    token = secrets.token_urlsafe(32)
+    return token, hash_token(token)
 
 
-def credentials_match(username: str, password: str) -> bool:
-    if not ADMIN_PASSWORD:
-        return False
-    # `&` вместо `and`: оба сравнения выполняются всегда, и время ответа не выдаёт, угадан ли логин.
-    return hmac.compare_digest(username, ADMIN_USERNAME) & hmac.compare_digest(password, ADMIN_PASSWORD)
-
-
-def _sign(payload: str) -> str:
-    return hmac.new(SECRET_KEY, payload.encode(), hashlib.sha256).hexdigest()
-
-
-def make_session_token() -> str:
-    payload = f"{ADMIN_USERNAME}:{int(time.time()) + SESSION_TTL_SECONDS}"
-    return f"{payload}:{_sign(payload)}"
-
-
-def session_is_valid(token: str) -> bool:
-    payload, _, signature = token.rpartition(":")
-    if not payload or not hmac.compare_digest(signature, _sign(payload)):
-        return False
-    _, _, expires_at = payload.rpartition(":")
-    return expires_at.isdigit() and int(expires_at) > time.time()
-
-
-def require_admin(request: Request) -> None:
-    token = request.cookies.get(SESSION_COOKIE, "")
-    if not session_is_valid(token):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Требуется вход администратора")
+def hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
 
 
 class RateLimiter:
@@ -90,6 +59,12 @@ booking_limiters = [
     RateLimiter(limit=30, window_seconds=TEN_MINUTES, per_client=False),
 ]
 login_limiters = [
+    RateLimiter(limit=10, window_seconds=TEN_MINUTES),
+    RateLimiter(limit=30, window_seconds=TEN_MINUTES, per_client=False),
+]
+# Регистрация, повторная отправка письма, «забыли пароль» и сброс пароля делят один счётчик:
+# все они отправляют письма или проверяют токены из писем.
+account_limiters = [
     RateLimiter(limit=10, window_seconds=TEN_MINUTES),
     RateLimiter(limit=30, window_seconds=TEN_MINUTES, per_client=False),
 ]

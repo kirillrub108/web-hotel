@@ -23,13 +23,19 @@ services:
     build: ./backend
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-kivana}:${POSTGRES_PASSWORD:-kivana}@db:5432/${POSTGRES_DB:-kivana}
-      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
-      SECRET_KEY: ${SECRET_KEY:-}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
+      MAIL_BACKEND: ${MAIL_BACKEND:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-Kivana <no-reply@kivana.ru>}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@kivana.ru}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-tidy copper lantern orbit}
+      PASSWORD_MIN_LENGTH: ${PASSWORD_MIN_LENGTH:-15}
+      SESSION_TTL_GUEST_DAYS: ${SESSION_TTL_GUEST_DAYS:-14}
+      SESSION_TTL_ADMIN_HOURS: ${SESSION_TTL_ADMIN_HOURS:-12}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       # uvicorn берёт IP клиента из X-Forwarded-For, который выставляет прокси во frontend.
       FORWARDED_ALLOW_IPS: "*"
-    # Порядок важен: миграции создают схему, сид наполняет пустую базу, затем стартует приложение.
+    # Порядок важен: миграции создают схему, сид добавляет данные и администратора, затем стартует приложение.
     command: sh -c "alembic upgrade head && python seed.py && uvicorn app.main:app --reload --host 0.0.0.0"
     ports:
       - "127.0.0.1:8000:8000"
@@ -43,6 +49,8 @@ services:
     build: ./frontend
     environment:
       API_BASE: http://backend:8000
+      # Та же минимальная длина пароля, что у backend: по ней поле пароля показывает, сколько осталось.
+      NUXT_PUBLIC_PASSWORD_MIN_LENGTH: ${PASSWORD_MIN_LENGTH:-15}
       WATCH_POLLING: ${WATCH_POLLING:-true}
     ports:
       - "3000:3000"

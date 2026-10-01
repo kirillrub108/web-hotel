@@ -1,7 +1,16 @@
+import os
+from datetime import UTC, datetime
+
 from sqlalchemy import func, select
+from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
-from app.models import Hotel, Room
+from app.models import Hotel, Room, User, UserRole
+from app.passwords import check_password, hash_password
+
+ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "admin@kivana.ru").strip().lower()
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "tidy copper lantern orbit")
+ADMIN_FULL_NAME = "Администратор"
 
 HOTEL = {
     "name": "Kivana",
@@ -152,17 +161,47 @@ ROOMS = [
 ]
 
 
-def seed() -> None:
-    """Наполняет пустую базу. Таблицы к этому моменту уже созданы командой `alembic upgrade head`."""
-    with SessionLocal() as session:
-        if session.scalar(select(func.count(Room.id))):
-            print("База уже заполнена, сид пропущен")
-            return
+def seed_hotel(session: Session) -> None:
+    if session.scalar(select(func.count(Room.id))):
+        print("Гостиница и номера уже есть, пропускаем")
+        return
 
-        session.add(Hotel(**HOTEL))
-        session.add_all(Room(**room) for room in ROOMS)
-        session.commit()
-        print(f"Добавлены данные гостиницы и {len(ROOMS)} номеров")
+    session.add(Hotel(**HOTEL))
+    session.add_all(Room(**room) for room in ROOMS)
+    session.commit()
+    print(f"Добавлены данные гостиницы и {len(ROOMS)} номеров")
+
+
+def create_admin(session: Session, email: str, password: str) -> None:
+    """Создаёт администратора, если его ещё нет. Пароль существующего пользователя не меняется никогда."""
+    if session.scalar(select(User.id).where(User.email == email)) is not None:
+        print(f"Администратор {email} уже есть, пропускаем")
+        return
+
+    problem = check_password(password, email=email, full_name=ADMIN_FULL_NAME)
+    if problem:
+        raise SystemExit(f"ADMIN_PASSWORD не проходит политику паролей: {problem}. Задайте другой пароль в .env")
+
+    now = datetime.now(UTC)
+    session.add(
+        User(
+            email=email,
+            password_hash=hash_password(password),
+            full_name=ADMIN_FULL_NAME,
+            role=UserRole.ADMIN,
+            email_verified_at=now,
+            consent_at=now,
+        )
+    )
+    session.commit()
+    print(f"Создан администратор {email}")
+
+
+def seed() -> None:
+    """Наполняет базу данными. Таблицы к этому моменту уже созданы командой `alembic upgrade head`."""
+    with SessionLocal() as session:
+        seed_hotel(session)
+        create_admin(session, ADMIN_EMAIL, ADMIN_PASSWORD)
 
 
 if __name__ == "__main__":

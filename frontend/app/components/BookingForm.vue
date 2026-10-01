@@ -65,20 +65,6 @@ function validate(): boolean {
   return Object.keys(found).length === 0
 }
 
-function errorMessage(error: unknown): string {
-  const detail = (error as { data?: { detail?: unknown } }).data?.detail
-  if (typeof detail === 'string') {
-    return detail
-  }
-  // 422 от FastAPI приходит списком ошибок. Русский текст есть только у наших валидаторов,
-  // и Pydantic добавляет к нему префикс «Value error, »; остальные сообщения — английские.
-  const first = Array.isArray(detail) ? (detail[0] as { msg?: unknown }) : undefined
-  if (typeof first?.msg === 'string' && first.msg.startsWith('Value error, ')) {
-    return first.msg.replace('Value error, ', '')
-  }
-  return 'Не удалось отправить заявку. Попробуйте ещё раз или позвоните нам.'
-}
-
 async function submit(): Promise<void> {
   serverError.value = ''
   if (!validate()) {
@@ -103,7 +89,7 @@ async function submit(): Promise<void> {
     isSent.value = true
   }
   catch (error) {
-    serverError.value = errorMessage(error)
+    serverError.value = apiErrorMessage(error, 'Не удалось отправить заявку. Попробуйте ещё раз или позвоните нам.')
   }
   finally {
     isSending.value = false

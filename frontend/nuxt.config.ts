@@ -17,6 +17,10 @@ export default defineNuxtConfig({
       link: [{ rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
     },
   },
+  runtimeConfig: {
+    // Переопределяется переменной NUXT_PUBLIC_PASSWORD_MIN_LENGTH — в compose она берётся из PASSWORD_MIN_LENGTH backend.
+    public: { passwordMinLength: 15 },
+  },
   routeRules: {
     '/api/**': { proxy: `${apiBase}/api/**` },
   },

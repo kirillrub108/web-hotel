@@ -44,3 +44,15 @@ export interface AdminBookingPage {
   items: AdminBooking[]
   total: number
 }
+
+export type UserRole = 'guest' | 'admin'
+
+export interface CurrentUser {
+  id: number
+  email: string
+  full_name: string
+  phone: string | null
+  role: UserRole
+  email_verified_at: string | null
+  created_at: string
+}

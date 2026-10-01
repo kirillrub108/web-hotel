@@ -1,6 +1,11 @@
+import logging
+
 from fastapi import FastAPI
 
-from app.routers import admin, bookings, hotel, rooms
+from app.routers import account, admin, auth, bookings, hotel, rooms
+
+# Логгеры приложения (например, console-почта) пишут в тот же поток, что и uvicorn: его видно в docker compose logs.
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(name)s: %(message)s")
 
 app = FastAPI(
     title="API гостиницы Kivana",
@@ -11,6 +16,8 @@ app = FastAPI(
 app.include_router(hotel.router)
 app.include_router(rooms.router)
 app.include_router(bookings.router)
+app.include_router(auth.router)
+app.include_router(account.router)
 app.include_router(admin.router)
 
 
