@@ -1,4 +1,4 @@
-import type { Actor, CrmStatus, DisplayStatus } from '~/types'
+import type { Actor, CrmStatus, DisplayStatus, Segment } from '~/types'
 
 // Единый словарь статусов брони: бейджи в форме, кабинете и админке берут подписи только отсюда.
 export const STATUS_LABELS: Record<DisplayStatus, string> = {
@@ -20,6 +20,13 @@ export const CRM_LABELS: Record<CrmStatus, string> = {
   regular: 'Обычный клиент',
   vip: 'VIP',
   blocked: 'Заблокирован',
+}
+
+// Сегмент считает backend по числу завершённых проживаний: «Гость» — одно проживание.
+export const SEGMENT_LABELS: Record<Segment, string> = {
+  new: 'Новый',
+  guest: 'Гость',
+  regular: 'Постоянный',
 }
 
 // Совпадает с HOTEL_TZ backend. Пояс задан явно, чтобы сервер (UTC) и браузер показывали одно и то же время

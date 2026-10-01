@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Booking, Quote, Room } from '~/types'
+import type { Booking, Promo, Quote, Room } from '~/types'
 
 const props = defineProps<{ room: Room }>()
 
@@ -16,6 +16,28 @@ const form = reactive({
   comment: '',
 })
 
+// Промокод: promoInput — то, что набрано, appliedCode — то, что учтено в котировке и уйдёт в заявке.
+const promoInput = ref('')
+const appliedCode = ref('')
+const promoError = ref('')
+
+// Предложения клиента: общие и персональные акции, не занятые бронями. Для гостя без входа список не запрашивается.
+const { data: offers } = useFetch<Promo[]>('/api/account/promos', { default: () => [], immediate: Boolean(user.value) })
+const roomOffers = computed(() => offers.value.filter(offer => offer.room_id === null || offer.room_id === props.room.id))
+
+// Выбор из списка и ввод кода — одно и то же значение: выбранная акция подставляет свой код.
+const selectedOffer = computed({
+  get: () => roomOffers.value.find(offer => offer.code === appliedCode.value)?.code ?? '',
+  set: (code: string) => {
+    promoInput.value = code
+    appliedCode.value = code
+  },
+})
+
+function applyPromo(): void {
+  appliedCode.value = promoInput.value.trim()
+}
+
 const errors = ref<Record<string, string>>({})
 const serverError = ref('')
 const isSending = ref(false)
@@ -28,17 +50,18 @@ let quoteRequest = 0
 // Живая котировка: при каждом изменении дат или числа гостей backend считает цену и проверяет даты.
 // Ответ устаревшего запроса отбрасывается по номеру, чтобы на экране не оказалась цена за прежние даты.
 watch(
-  () => [form.check_in, form.check_out, form.guests] as const,
-  async ([checkIn, checkOut, guests]) => {
+  () => [form.check_in, form.check_out, form.guests, appliedCode.value] as const,
+  async ([checkIn, checkOut, guests, promoCode]) => {
     quote.value = null
     quoteError.value = ''
+    promoError.value = ''
     if (!checkIn || !checkOut || checkOut <= checkIn || guests < 1) {
       return
     }
     const request = ++quoteRequest
     try {
       const fresh = await $fetch<Quote>(`/api/rooms/${props.room.slug}/quote`, {
-        query: { check_in: checkIn, check_out: checkOut, guests },
+        query: { check_in: checkIn, check_out: checkOut, guests, ...(promoCode ? { promo_code: promoCode } : {}) },
       })
       if (request === quoteRequest) {
         quote.value = fresh
@@ -46,7 +69,14 @@ watch(
     }
     catch (error) {
       if (request === quoteRequest) {
-        quoteError.value = apiErrorMessage(error, 'Не удалось рассчитать стоимость. Проверьте даты.')
+        const message = apiErrorMessage(error, 'Не удалось рассчитать стоимость. Проверьте даты.')
+        // Котировка отвечает 400 только на неподходящий промокод; ошибки дат приходят как 422.
+        if (promoCode && (error as { statusCode?: number }).statusCode === 400) {
+          promoError.value = message
+        }
+        else {
+          quoteError.value = message
+        }
       }
     }
   },
@@ -86,6 +116,7 @@ async function submit(): Promise<void> {
         check_out: form.check_out,
         guests: form.guests,
         comment: form.comment.trim() || null,
+        promo_code: appliedCode.value || null,
       },
     })
   }
@@ -165,6 +196,30 @@ async function submit(): Promise<void> {
         <span class="booking__hint">С комментарием заявку проверит администратор.</span>
       </div>
 
+      <div v-if="user" class="field">
+        <label for="promo_code">Промокод</label>
+        <select v-if="roomOffers.length" id="promo_offer" v-model="selectedOffer" aria-label="Ваши предложения">
+          <option value="">Выбрать из ваших предложений</option>
+          <option v-for="offer in roomOffers" :key="offer.id" :value="offer.code">
+            {{ offer.title }} ({{ promoValueLabel(offer) }})
+          </option>
+        </select>
+        <div class="booking__promo">
+          <input
+            id="promo_code"
+            v-model="promoInput"
+            type="text"
+            maxlength="32"
+            autocomplete="off"
+            placeholder="Или введите код"
+            @keydown.enter.prevent="applyPromo"
+          >
+          <button class="button button--ghost" type="button" @click="applyPromo">Применить</button>
+        </div>
+        <span v-if="promoError" class="field__error" aria-live="polite">{{ promoError }}</span>
+        <span v-else-if="quote?.promo_title" class="booking__hint">Применена акция «{{ quote.promo_title }}».</span>
+      </div>
+
       <div v-if="quote" class="booking__quote" aria-live="polite">
         <template v-if="quote.available">
           <p>{{ nightsLabel(quote.nights) }} × {{ formatRubles(quote.price_per_night) }} = {{ formatRubles(quote.subtotal) }}</p>
@@ -200,6 +255,16 @@ async function submit(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+
+.booking__promo {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.booking__promo input {
+  flex: 1;
+  min-width: 0;
 }
 
 .booking__row {

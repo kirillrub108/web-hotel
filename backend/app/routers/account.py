@@ -2,6 +2,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
+from app import hotel_time
 from app.booking_lifecycle import (
     change_status,
     expire_stale_pending,
@@ -11,8 +12,9 @@ from app.booking_lifecycle import (
     load_hotel,
 )
 from app.database import get_db
-from app.models import Actor, Booking, BookingStatus, User
-from app.schemas import GuestBookingDetail, GuestBookingOut, ProfileUpdate, UserOut
+from app.models import Actor, Booking, BookingStatus, Promo, User
+from app.promos import available_promos
+from app.schemas import GuestBookingDetail, GuestBookingOut, ProfileUpdate, PromoOffer, UserOut
 from app.sessions import require_user
 
 router = APIRouter(prefix="/api/account", tags=["account"])
@@ -29,6 +31,13 @@ def update_profile(payload: ProfileUpdate, user: User = Depends(require_user), d
     user.phone = payload.phone
     db.commit()
     return user
+
+
+@router.get("/promos", response_model=list[PromoOffer])
+def list_my_promos(user: User = Depends(require_user), db: Session = Depends(get_db)) -> list[Promo]:
+    """Предложения клиента: его персональные и общие акции, которые действуют сегодня и ещё не использованы."""
+    query = available_promos(user, hotel_time.hotel_today()).options(joinedload(Promo.room))
+    return list(db.scalars(query))
 
 
 def booking_detail(db: Session, booking: Booking) -> dict[str, object]:
@@ -50,7 +59,7 @@ def list_my_bookings(
     db.commit()
     query = (
         select(Booking)
-        .options(joinedload(Booking.room))
+        .options(joinedload(Booking.room), joinedload(Booking.promo))
         .where(Booking.user_id == user.id)
         .order_by(Booking.check_in.desc(), Booking.id.desc())
     )
