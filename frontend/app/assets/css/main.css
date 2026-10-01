@@ -21,6 +21,29 @@
 
   --shadow: 0 8px 24px rgba(60, 40, 25, 0.08);
   --container: 1120px;
+
+  /* Минимальная тач-цель и вырезы экрана (работают при viewport-fit=cover). */
+  --tap: 44px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+
+/*
+ * Адаптивность. Брейкпоинты: 640px (телефон → планшет) и 1024px (планшет → десктоп).
+ * Структурные правила написаны от телефона: база — мобильная, min-width раскрывает её.
+ * Таблицы-карточки и размеры тач-целей — наоборот, одним блоком под max-width / pointer,
+ * чтобы десктопный вид гарантированно не менялся.
+ */
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
 * {
@@ -34,6 +57,12 @@ body {
   font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   font-size: 17px;
   line-height: 1.65;
+  overflow-wrap: break-word;
+}
+
+/* Открытая модалка не должна прокручивать страницу под собой. */
+body:has(dialog[open]) {
+  overflow: hidden;
 }
 
 h1,
@@ -74,15 +103,29 @@ img {
   display: block;
 }
 
+select {
+  max-width: 100%;
+}
+
 .container {
   width: 100%;
   max-width: var(--container);
   margin: 0 auto;
-  padding: 0 var(--space-3);
+  padding: 0 max(var(--space-2), var(--safe-right)) 0 max(var(--space-2), var(--safe-left));
 }
 
 .section {
-  padding: var(--space-5) 0;
+  padding: var(--space-4) 0;
+}
+
+@media (min-width: 640px) {
+  .container {
+    padding: 0 max(var(--space-3), var(--safe-right)) 0 max(var(--space-3), var(--safe-left));
+  }
+
+  .section {
+    padding: var(--space-5) 0;
+  }
 }
 
 .section--warm {
@@ -98,7 +141,7 @@ img {
 .grid {
   display: grid;
   gap: var(--space-3);
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
 }
 
 .card {
@@ -109,7 +152,10 @@ img {
 }
 
 .button {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap);
   padding: 12px 26px;
   border: 0;
   border-radius: var(--radius-sm);
@@ -164,6 +210,7 @@ img {
 .field input,
 .field select,
 .field textarea {
+  min-height: var(--tap);
   padding: 11px 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -207,7 +254,13 @@ img {
   gap: var(--space-2);
   max-width: 460px;
   margin: 0 auto;
-  padding: var(--space-4) var(--space-3);
+  padding: var(--space-3) var(--space-2);
+}
+
+@media (min-width: 640px) {
+  .form-card {
+    padding: var(--space-4) var(--space-3);
+  }
 }
 
 .form-card h1,
@@ -219,8 +272,15 @@ img {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  gap: var(--space-1);
+  gap: 0 var(--space-2);
   font-size: 0.9rem;
+}
+
+.form-card__links a,
+.form-card a.form-card__back {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
 }
 
 .checkbox {
@@ -230,8 +290,18 @@ img {
   font-size: 0.9rem;
 }
 
-.checkbox input {
-  margin-top: 4px;
+.checkbox {
+  min-height: var(--tap);
+  padding: 8px 0;
+}
+
+.checkbox input,
+.field .checkbox input {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  min-height: 0;
+  margin: 3px 0 0;
   accent-color: var(--accent);
 }
 
@@ -268,6 +338,16 @@ img {
   border-bottom: 0;
 }
 
+/* Ячейка с действиями: кнопки столбиком, сама ячейка остаётся табличной. Подписи для карточек — в data-label. */
+.data-table td.actions > * {
+  display: flex;
+  width: 100%;
+}
+
+.data-table td.actions > * + * {
+  margin-top: 6px;
+}
+
 .nowrap {
   white-space: nowrap;
 }
@@ -297,6 +377,9 @@ img {
 }
 
 .link-button {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
   padding: 4px 0;
   border: 0;
   background: none;
@@ -307,11 +390,44 @@ img {
   text-align: left;
 }
 
+/* Пары «название — значение»: на телефоне друг под другом, от 640px — в две колонки. */
+.facts {
+  display: grid;
+  gap: 2px var(--space-2);
+  margin: 0;
+}
+
+.facts dt {
+  color: var(--muted);
+}
+
+.facts dd {
+  min-width: 0;
+  margin: 0 0 var(--space-1);
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 640px) {
+  .facts {
+    grid-template-columns: fit-content(14rem) 1fr;
+    gap: 8px var(--space-2);
+  }
+
+  .facts dd {
+    margin: 0;
+  }
+}
+
+/* Модальное окно: на телефоне — шторка во всю ширину, кнопки закреплены внизу. */
 .dialog {
-  width: min(520px, calc(100vw - 32px));
-  padding: var(--space-3);
+  width: 100%;
+  max-width: 100%;
+  max-height: 92vh;
+  max-height: 92dvh;
+  margin: auto 0 0;
+  padding: var(--space-3) max(var(--space-2), var(--safe-right)) 0 max(var(--space-2), var(--safe-left));
   border: 0;
-  border-radius: var(--radius);
+  border-radius: var(--radius) var(--radius) 0 0;
   box-shadow: var(--shadow);
   color: var(--text);
 }
@@ -338,10 +454,37 @@ img {
 }
 
 .dialog__actions {
+  position: sticky;
+  bottom: 0;
   display: flex;
   justify-content: flex-end;
   gap: var(--space-1);
   flex-wrap: wrap;
+  padding: var(--space-1) 0 max(var(--space-3), var(--safe-bottom));
+  background: var(--surface);
+}
+
+.dialog__actions .button {
+  flex: 1;
+}
+
+@media (min-width: 640px) {
+  .dialog {
+    width: min(520px, calc(100vw - 32px));
+    max-height: calc(100% - 6px - 2em);
+    margin: auto;
+    padding: var(--space-3);
+    border-radius: var(--radius);
+  }
+
+  .dialog__actions {
+    position: static;
+    padding: 0;
+  }
+
+  .dialog__actions .button {
+    flex: none;
+  }
 }
 
 .tabs {
@@ -352,6 +495,7 @@ img {
 }
 
 .tabs__item {
+  min-height: var(--tap);
   padding: 8px 16px;
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -365,4 +509,220 @@ img {
   border-color: var(--accent);
   background: var(--accent);
   color: #fff;
+}
+
+/* Подменю разделов (кабинет, админка): таблетки. На телефоне .subnav--scroll — лента с прокруткой. */
+.subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+  font-weight: 600;
+}
+
+.subnav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+@media (min-width: 640px) {
+  .subnav a {
+    padding: 0 var(--space-2);
+  }
+}
+
+.subnav a:hover {
+  text-decoration: none;
+  color: var(--accent-dark);
+}
+
+.subnav a.subnav__link--active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+@media (max-width: 639.98px) {
+  .subnav--scroll {
+    flex-wrap: nowrap;
+    margin-right: calc(-1 * max(var(--space-2), var(--safe-right)));
+    margin-left: calc(-1 * max(var(--space-2), var(--safe-left)));
+    padding: 0 max(var(--space-2), var(--safe-right)) 4px max(var(--space-2), var(--safe-left));
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .subnav--scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .subnav--scroll a {
+    flex: none;
+  }
+}
+
+/* Телефон и планшет (<1024): строка таблицы становится карточкой, подпись поля берётся из data-label. */
+@media (max-width: 1023.98px) {
+  .table-wrap {
+    overflow-x: visible;
+  }
+
+  .data-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .data-table,
+  .data-table tbody,
+  .data-table tr,
+  .data-table td {
+    display: block;
+  }
+
+  .data-table tr {
+    padding: var(--space-1) var(--space-2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .data-table tbody tr:last-child {
+    border-bottom: 0;
+  }
+
+  .data-table td {
+    padding: 6px 0;
+    border: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .data-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+
+  .data-table td.nowrap {
+    white-space: normal;
+  }
+
+  .data-table td:not([data-label]) a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap);
+  }
+
+  .data-table td.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+    margin-top: 6px;
+    padding-top: var(--space-1);
+    border-top: 1px solid var(--border);
+  }
+
+  .data-table td.actions > * {
+    display: inline-flex;
+    flex: 1 1 auto;
+    width: auto;
+    justify-content: center;
+    margin: 0;
+  }
+
+  .data-table td.actions .link-button {
+    padding: 0 var(--space-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+  }
+
+  .data-table td.actions .hint {
+    flex-basis: 100%;
+    justify-content: flex-start;
+    min-height: 0;
+  }
+}
+
+/* 1024–1279: самая широкая таблица (заявки) должна помещаться без горизонтальной прокрутки. */
+@media (min-width: 1024px) and (max-width: 1279.98px) {
+  .data-table th,
+  .data-table td {
+    padding: 12px 8px;
+  }
+}
+
+/* 640–1023: поля карточки в две колонки, длинные ячейки и действия — на всю ширину. */
+@media (min-width: 640px) and (max-width: 1023.98px) {
+  .data-table tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--space-3);
+  }
+
+  .data-table td.actions,
+  .data-table td.reasons,
+  .data-table td.description,
+  .data-table td[colspan] {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Планшет и телефон: тач-цели не меньше 44px. На десктопе с мышью — прежние компактные размеры. */
+.button--small,
+.tabs__item {
+  min-height: var(--tap);
+}
+
+@media (min-width: 1024px) and (pointer: fine) {
+  .button--small,
+  .tabs__item,
+  .link-button {
+    min-height: 0;
+  }
+
+  .checkbox {
+    min-height: 0;
+    padding: 0;
+  }
+
+  .checkbox input,
+  .field .checkbox input {
+    width: auto;
+    height: auto;
+    margin: 4px 0 0;
+  }
+
+  .subnav {
+    gap: var(--space-3);
+  }
+
+  .subnav a {
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+  }
+
+  .subnav a.subnav__link--active {
+    background: none;
+    color: var(--accent-dark);
+  }
+
+  .form-card__links a,
+  .form-card a.form-card__back {
+    min-height: 0;
+  }
 }

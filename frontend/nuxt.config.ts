@@ -12,6 +12,8 @@ export default defineNuxtConfig({
     head: {
       htmlAttrs: { lang: 'ru' },
       meta: [
+        // viewport-fit=cover включает env(safe-area-inset-*) для липких элементов на устройствах с вырезом.
+        { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
         { name: 'description', content: 'Гостиница Kivana в центре Ярославля: номера от эконома до апартаментов, завтрак, парковка.' },
       ],
       link: [{ rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],

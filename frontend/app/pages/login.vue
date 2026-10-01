@@ -42,7 +42,7 @@ useHead({ title: 'Вход — Kivana' })
 
         <div class="field">
           <label for="email">Электронная почта</label>
-          <input id="email" v-model="form.email" type="email" autocomplete="username" required>
+          <input id="email" v-model="form.email" type="email" inputmode="email" autocomplete="username" required>
         </div>
 
         <PasswordField id="password" v-model="form.password" label="Пароль" autocomplete="current-password" />

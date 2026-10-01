@@ -73,4 +73,10 @@ const emit = defineEmits<{ mark: [status: HousekeepingStatus] }>()
   gap: var(--space-1);
   flex-wrap: wrap;
 }
+
+@media (max-width: 639.98px) {
+  .row__actions .button {
+    flex: 1 1 40%;
+  }
+}
 </style>

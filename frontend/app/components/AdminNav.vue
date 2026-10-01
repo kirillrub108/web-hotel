@@ -15,30 +15,18 @@ const LINKS = [
 function isActive(to: string): boolean {
   return to === '/admin' ? route.path === '/admin' : route.path.startsWith(to)
 }
+
+// На телефоне разделы — лента с прокруткой: активный пункт подводим в видимую область.
+const nav = ref<HTMLElement | null>(null)
+onMounted(() => {
+  nav.value?.querySelector<HTMLElement>('.subnav__link--active')?.scrollIntoView({ inline: 'center', block: 'nearest' })
+})
 </script>
 
 <template>
-  <nav class="admin-nav" aria-label="Разделы админки">
-    <NuxtLink v-for="link in LINKS" :key="link.to" :to="link.to" :class="{ 'admin-nav__active': isActive(link.to) }">
+  <nav ref="nav" class="subnav subnav--scroll" aria-label="Разделы админки">
+    <NuxtLink v-for="link in LINKS" :key="link.to" :to="link.to" :class="{ 'subnav__link--active': isActive(link.to) }">
       {{ link.label }}
     </NuxtLink>
   </nav>
 </template>
-
-<style scoped>
-.admin-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  margin-bottom: var(--space-2);
-  font-weight: 600;
-}
-
-.admin-nav a {
-  color: var(--muted);
-}
-
-.admin-nav a.admin-nav__active {
-  color: var(--accent-dark);
-}
-</style>

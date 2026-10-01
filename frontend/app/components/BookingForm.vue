@@ -169,7 +169,7 @@ async function submit(): Promise<void> {
 
       <div class="field">
         <label for="phone">Телефон</label>
-        <input id="phone" v-model="form.phone" type="tel" autocomplete="tel" maxlength="40" placeholder="+7 900 000-00-00">
+        <input id="phone" v-model="form.phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="40" placeholder="+7 900 000-00-00">
         <span v-if="errors.phone" class="field__error">{{ errors.phone }}</span>
       </div>
 
@@ -187,7 +187,7 @@ async function submit(): Promise<void> {
 
       <div class="field">
         <label for="guests">Гостей</label>
-        <input id="guests" v-model.number="form.guests" type="number" min="1" :max="room.capacity">
+        <input id="guests" v-model.number="form.guests" type="number" inputmode="numeric" min="1" :max="room.capacity">
       </div>
 
       <div class="field">
@@ -242,7 +242,13 @@ async function submit(): Promise<void> {
 
 <style scoped>
 .booking {
-  padding: var(--space-3);
+  padding: var(--space-2);
+}
+
+@media (min-width: 640px) {
+  .booking {
+    padding: var(--space-3);
+  }
 }
 
 .booking__lead,
@@ -259,7 +265,14 @@ async function submit(): Promise<void> {
 
 .booking__promo {
   display: flex;
+  flex-direction: column;
   gap: var(--space-1);
+}
+
+@media (min-width: 640px) {
+  .booking__promo {
+    flex-direction: row;
+  }
 }
 
 .booking__promo input {
@@ -270,7 +283,12 @@ async function submit(): Promise<void> {
 .booking__row {
   display: grid;
   gap: var(--space-2);
-  grid-template-columns: 1fr 1fr;
+}
+
+@media (min-width: 640px) {
+  .booking__row {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 .booking__quote {
@@ -295,11 +313,5 @@ async function submit(): Promise<void> {
 
 .booking__submit {
   margin-top: var(--space-1);
-}
-
-@media (max-width: 560px) {
-  .booking__row {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

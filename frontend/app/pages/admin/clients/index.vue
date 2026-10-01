@@ -51,7 +51,7 @@ useHead({
       <form class="search" role="search" @submit.prevent="applySearch">
         <label class="search__label" for="client-search">Поиск по имени, email или телефону</label>
         <div class="search__row">
-          <input id="client-search" v-model="searchInput" type="search" maxlength="100" placeholder="Анна, ivan@example.com, 900 123">
+          <input id="client-search" v-model="searchInput" type="search" inputmode="search" enterkeyhint="search" maxlength="100" placeholder="Анна, ivan@example.com, 900 123">
           <button class="button" type="submit">Найти</button>
           <button v-if="search" class="button button--ghost" type="button" @click="resetSearch">Сбросить</button>
         </div>
@@ -76,24 +76,24 @@ useHead({
           </thead>
           <tbody>
             <tr v-for="client in data.items" :key="client.id">
-              <td>
+              <td data-label="Клиент">
                 <NuxtLink :to="`/admin/clients/${client.id}`"><strong>{{ client.full_name }}</strong></NuxtLink><br>
                 <span class="muted">{{ client.email }}</span>
                 <template v-if="client.phone">
                   <br><span class="muted">{{ client.phone }}</span>
                 </template>
               </td>
-              <td>
+              <td data-label="Сегмент">
                 <span class="tag">{{ SEGMENT_LABELS[client.segment] }}</span>
                 <span v-if="client.crm_status !== 'regular'" class="tag crm" :class="`crm--${client.crm_status}`">
                   {{ CRM_LABELS[client.crm_status] }}
                 </span>
               </td>
-              <td>{{ client.stays }}</td>
-              <td>{{ client.nights }}</td>
-              <td class="nowrap">{{ formatRubles(client.revenue) }}</td>
-              <td class="nowrap">{{ client.last_stay_at ? formatDate(client.last_stay_at) : '—' }}</td>
-              <td class="nowrap">{{ formatDateTime(client.last_activity_at) }}</td>
+              <td data-label="Проживаний">{{ client.stays }}</td>
+              <td data-label="Ночей">{{ client.nights }}</td>
+              <td data-label="Выручка" class="nowrap">{{ formatRubles(client.revenue) }}</td>
+              <td data-label="Последнее проживание" class="nowrap">{{ client.last_stay_at ? formatDate(client.last_stay_at) : '—' }}</td>
+              <td data-label="Активность" class="nowrap">{{ formatDateTime(client.last_activity_at) }}</td>
             </tr>
           </tbody>
         </table>
@@ -141,13 +141,28 @@ useHead({
 }
 
 .search__row input {
-  flex: 1 1 260px;
+  flex: 1 1 100%;
+  min-height: var(--tap);
   padding: 11px 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text);
   font: inherit;
+}
+
+.search__row .button {
+  flex: 1;
+}
+
+@media (min-width: 640px) {
+  .search__row input {
+    flex-basis: 260px;
+  }
+
+  .search__row .button {
+    flex: none;
+  }
 }
 
 .crm {

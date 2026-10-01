@@ -58,7 +58,7 @@ async function submit(): Promise<void> {
 
       <div class="field">
         <label for="service-slug">Код</label>
-        <input id="service-slug" v-model="form.slug" type="text" maxlength="60" autocomplete="off" placeholder="zavtrak-v-nomer">
+        <input id="service-slug" v-model="form.slug" type="text" maxlength="60" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="zavtrak-v-nomer">
         <span v-if="errors.slug" class="field__error">{{ errors.slug }}</span>
         <span v-else class="dialog__hint">Латинские буквы в нижнем регистре, цифры и «-». Должен быть уникальным.</span>
       </div>
@@ -86,12 +86,12 @@ async function submit(): Promise<void> {
       <div class="service-row">
         <div class="field">
           <label for="service-price">Стоимость, ₽</label>
-          <input id="service-price" v-model.number="form.price" type="number" min="0">
+          <input id="service-price" v-model.number="form.price" type="number" inputmode="numeric" min="0">
           <span v-if="errors.price" class="field__error">{{ errors.price }}</span>
         </div>
         <div class="field">
           <label for="service-sort">Порядок показа</label>
-          <input id="service-sort" v-model.number="form.sort_order" type="number" min="0">
+          <input id="service-sort" v-model.number="form.sort_order" type="number" inputmode="numeric" min="0">
           <span class="dialog__hint">Чем меньше число, тем выше в каталоге.</span>
         </div>
       </div>
@@ -119,12 +119,11 @@ async function submit(): Promise<void> {
 .service-row {
   display: grid;
   gap: var(--space-2);
-  grid-template-columns: 1fr 1fr;
 }
 
-@media (max-width: 560px) {
+@media (min-width: 640px) {
   .service-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
   }
 }
 </style>

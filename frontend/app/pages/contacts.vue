@@ -70,7 +70,7 @@ useHead({ title: 'Контакты — Kivana' })
 .layout {
   display: grid;
   gap: var(--space-3);
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
 }
 
 .block {

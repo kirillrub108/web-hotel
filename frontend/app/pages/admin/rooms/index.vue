@@ -56,14 +56,14 @@ useHead({
           </thead>
           <tbody>
             <tr v-for="room in data" :key="room.id">
-              <td>
+              <td data-label="Номер">
                 <strong>{{ room.name }}</strong><br>
                 <span class="muted">{{ room.slug }}</span>
               </td>
-              <td>{{ room.capacity }}</td>
-              <td class="nowrap">{{ formatRubles(room.price_per_night) }}</td>
-              <td class="description">{{ room.description }}</td>
-              <td>{{ room.is_available ? 'Доступен' : 'Снят с продажи' }}</td>
+              <td data-label="Гостей">{{ room.capacity }}</td>
+              <td data-label="Цена за ночь" class="nowrap">{{ formatRubles(room.price_per_night) }}</td>
+              <td data-label="Описание" class="description">{{ room.description }}</td>
+              <td data-label="Состояние">{{ room.is_available ? 'Доступен' : 'Снят с продажи' }}</td>
               <td class="actions">
                 <button class="link-button" type="button" @click="editing = room">Изменить</button>
               </td>

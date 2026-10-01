@@ -115,6 +115,14 @@ useHead({ title: 'Личный кабинет — Kivana', meta: [{ name: 'robot
   background: var(--surface-warm);
 }
 
+@media (max-width: 1023.98px) {
+  .overview a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap);
+  }
+}
+
 .banner p,
 .overview p,
 .overview h2 {
@@ -139,6 +147,10 @@ useHead({ title: 'Личный кабинет — Kivana', meta: [{ name: 'robot
 
 .offer p {
   margin: 0 0 6px;
+}
+
+.offer .tag {
+  background: var(--surface);
 }
 
 .offer__head {

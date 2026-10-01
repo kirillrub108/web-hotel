@@ -90,6 +90,12 @@ async function changeSlot(task: HousekeepingTask, event: Event): Promise<void> {
   font: inherit;
 }
 
+@media (max-width: 1023.98px) {
+  .tasks__item select {
+    min-height: var(--tap);
+  }
+}
+
 .tasks__fixed {
   display: flex;
   align-items: center;

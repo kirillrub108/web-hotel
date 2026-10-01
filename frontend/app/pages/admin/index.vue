@@ -137,27 +137,27 @@ useHead({
           <tbody>
             <template v-for="item in data.items" :key="item.id">
               <tr>
-                <td class="nowrap">№{{ item.id }}<br><span class="muted">{{ formatDateTime(item.created_at) }}</span></td>
-                <td>
+                <td data-label="Создана" class="nowrap">№{{ item.id }}<br><span class="muted">{{ formatDateTime(item.created_at) }}</span></td>
+                <td data-label="Номер">
                   <NuxtLink :to="'/rooms/' + item.room.slug">{{ item.room.name }}</NuxtLink>
                 </td>
-                <td>
+                <td data-label="Гость">
                   <strong>{{ item.guest_name }}</strong>
                   <span v-if="item.user.crm_status !== 'regular'" class="tag crm">{{ CRM_LABELS[item.user.crm_status] }}</span><br>
                   <a :href="'tel:' + item.phone.replace(/[^+\d]/g, '')">{{ item.phone }}</a><br>
                   <a :href="'mailto:' + item.user.email">{{ item.user.email }}</a>
                 </td>
-                <td class="nowrap">
+                <td data-label="Даты" class="nowrap">
                   {{ formatDate(item.check_in) }} — {{ formatDate(item.check_out) }}<br>
                   <span class="muted">{{ nightsLabel(item.nights) }}, гостей: {{ item.guests }}</span>
                 </td>
-                <td class="nowrap">
+                <td data-label="Сумма" class="nowrap">
                   {{ formatRubles(item.total_price) }}
                   <template v-if="item.promo">
                     <br><span class="muted">−{{ formatRubles(item.discount) }}, {{ item.promo.code }}</span>
                   </template>
                 </td>
-                <td class="reasons">
+                <td data-label="Статус" class="reasons">
                   <StatusBadge :status="item.display_status" />
                   <ul v-if="item.reasons.length">
                     <li v-for="reason in item.reasons" :key="reason">{{ reason }}</li>
@@ -244,8 +244,20 @@ useHead({
 }
 
 .reasons {
-  min-width: 220px;
-  max-width: 320px;
+  min-width: 0;
+}
+
+@media (min-width: 640px) {
+  .reasons {
+    min-width: 180px;
+    max-width: 320px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .reasons {
+    min-width: 220px;
+  }
 }
 
 .reasons ul {
@@ -262,12 +274,6 @@ useHead({
 
 .codes {
   font-family: ui-monospace, monospace;
-}
-
-.actions {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
 }
 
 .history td {

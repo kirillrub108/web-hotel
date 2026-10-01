@@ -82,15 +82,29 @@ useHead({ title: 'Номера — Kivana' })
 <style scoped>
 .filters {
   display: flex;
-  gap: var(--space-3);
-  align-items: end;
-  flex-wrap: wrap;
-  padding: var(--space-3);
-  margin-bottom: var(--space-4);
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+@media (min-width: 640px) {
+  .filters {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    align-items: end;
+    padding: var(--space-3);
+    margin-bottom: var(--space-4);
+  }
+
+  .filters select {
+    min-width: 200px;
+  }
 }
 
 .filters select {
-  min-width: 200px;
+  min-height: var(--tap);
   padding: 11px 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);

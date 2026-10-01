@@ -45,7 +45,7 @@ useHead({ title: 'Новый пароль — Kivana', meta: [{ name: 'robots', 
       <div v-else-if="!token" class="card form-card">
         <h1>Новый пароль</h1>
         <p class="notice notice--error">В ссылке нет кода. Откройте ссылку из письма целиком.</p>
-        <NuxtLink to="/forgot-password">Запросить новое письмо</NuxtLink>
+        <NuxtLink to="/forgot-password" class="form-card__back">Запросить новое письмо</NuxtLink>
       </div>
 
       <form v-else class="card form-card" @submit.prevent="submit">
@@ -61,7 +61,7 @@ useHead({ title: 'Новый пароль — Kivana', meta: [{ name: 'robots', 
 
         <p v-if="errorText" class="notice notice--error">
           {{ errorText }}
-          <NuxtLink to="/forgot-password">Запросить новое письмо</NuxtLink>
+          <NuxtLink to="/forgot-password" class="form-card__back">Запросить новое письмо</NuxtLink>
         </p>
 
         <button class="button" type="submit" :disabled="isSending">
