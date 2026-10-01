@@ -41,6 +41,7 @@ services:
       MAX_STAY_NIGHTS: ${MAX_STAY_NIGHTS:-30}
       MAX_LEAD_DAYS: ${MAX_LEAD_DAYS:-365}
       MAX_PENDING_PER_CLIENT: ${MAX_PENDING_PER_CLIENT:-3}
+      ROOM_SERVICE_HOURS: ${ROOM_SERVICE_HOURS:-08:00-23:00}
       ADMIN_NOTIFY_EMAIL: ${ADMIN_NOTIFY_EMAIL:-}
       # uvicorn берёт IP клиента из X-Forwarded-For, который выставляет прокси во frontend.
       FORWARDED_ALLOW_IPS: "*"

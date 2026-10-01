@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
-from app.models import Hotel, Room, User, UserRole
+from app.models import Hotel, Room, Service, ServiceCategory, ServiceUnit, User, UserRole
 from app.passwords import check_password, hash_password
 
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "admin@kivana.ru").strip().lower()
@@ -161,6 +161,127 @@ ROOMS = [
 ]
 
 
+FOOD, CLEANING, TRANSFER = ServiceCategory.FOOD, ServiceCategory.HOUSEKEEPING, ServiceCategory.TRANSFER
+WELLNESS, OTHER = ServiceCategory.WELLNESS, ServiceCategory.OTHER
+ITEM, STAY = ServiceUnit.PER_ITEM, ServiceUnit.PER_STAY
+
+# Каталог услуг: (slug, название, описание, категория, цена в рублях, за что цена). Порядок строк — порядок показа.
+SERVICES = [
+    (
+        "zavtrak-v-nomer",
+        "Завтрак в номер",
+        "Омлет или сырники, свежая выпечка, масло и джем, чай или кофе на выбор. Подадим в назначенное время.",
+        FOOD,
+        650,
+        ITEM,
+    ),
+    (
+        "syrniki",
+        "Сырники со сметаной и ягодами",
+        "Четыре сырника из домашнего творога, сметана и ягодный соус.",
+        FOOD,
+        420,
+        ITEM,
+    ),
+    (
+        "sudak",
+        "Судак с овощами",
+        "Филе судака на гриле, запечённый картофель и сезонные овощи.",
+        FOOD,
+        890,
+        ITEM,
+    ),
+    (
+        "pasta-s-gribami",
+        "Паста с лесными грибами",
+        "Тальятелле в сливочном соусе с белыми грибами и пармезаном.",
+        FOOD,
+        640,
+        ITEM,
+    ),
+    (
+        "tsezar",
+        "Салат «Цезарь» с курицей",
+        "Романо, куриное филе, пармезан, сухарики и фирменный соус.",
+        FOOD,
+        480,
+        ITEM,
+    ),
+    (
+        "chaynik-chaya",
+        "Чайник чая или кофе",
+        "Чёрный, зелёный или травяной чай, а также кофе на выбор. Чайник рассчитан на двоих.",
+        FOOD,
+        350,
+        ITEM,
+    ),
+    (
+        "igristoe",
+        "Бутылка игристого вина",
+        "Брют, 0,75 л. Подаётся охлаждённым, вместе с бокалами.",
+        FOOD,
+        2400,
+        ITEM,
+    ),
+    (
+        "dop-uborka",
+        "Дополнительная уборка",
+        "Внеплановая уборка номера: пылесос, влажная уборка, ванная комната и свежие полотенца.",
+        CLEANING,
+        900,
+        ITEM,
+    ),
+    (
+        "smena-belya",
+        "Смена белья",
+        "Заменим постельное бельё и полотенца на свежие вне графика.",
+        CLEANING,
+        500,
+        ITEM,
+    ),
+    (
+        "prachechnaya",
+        "Прачечная",
+        "Стирка и глажка за сутки: заберём вещи из номера и вернём к назначенному времени. Цена за комплект до 3 кг.",
+        CLEANING,
+        700,
+        ITEM,
+    ),
+    (
+        "transfer-aeroport",
+        "Трансфер из аэропорта",
+        "Встретим вас с табличкой в аэропорту Туношна и отвезём в гостиницу на легковом автомобиле. Цена за поездку.",
+        TRANSFER,
+        1800,
+        STAY,
+    ),
+    (
+        "spa",
+        "SPA-программа",
+        "Расслабляющий массаж 60 минут и час в парной. Запишем вас на удобное время.",
+        WELLNESS,
+        3200,
+        ITEM,
+    ),
+    (
+        "rannij-zaezd",
+        "Ранний заезд",
+        "Номер будет готов к вашему приезду с утра, раньше обычного времени заезда.",
+        OTHER,
+        1500,
+        STAY,
+    ),
+    (
+        "pozdnij-vyezd",
+        "Поздний выезд",
+        "Освободите номер на несколько часов позже обычного времени выезда.",
+        OTHER,
+        1500,
+        STAY,
+    ),
+]
+
+
 def seed_hotel(session: Session) -> None:
     if session.scalar(select(func.count(Room.id))):
         print("Гостиница и номера уже есть, пропускаем")
@@ -170,6 +291,29 @@ def seed_hotel(session: Session) -> None:
     session.add_all(Room(**room) for room in ROOMS)
     session.commit()
     print(f"Добавлены данные гостиницы и {len(ROOMS)} номеров")
+
+
+def seed_services(session: Session) -> None:
+    """Добавляет услуги, которых ещё нет по slug. Существующие не трогает: правки администратора важнее сида."""
+    known = set(session.scalars(select(Service.slug)))
+    added = 0
+    for sort_order, (slug, title, description, category, price, unit) in enumerate(SERVICES, start=1):
+        if slug in known:
+            continue
+        session.add(
+            Service(
+                slug=slug,
+                title=title,
+                description=description,
+                category=category,
+                price=price,
+                unit=unit,
+                sort_order=sort_order * 10,
+            )
+        )
+        added += 1
+    session.commit()
+    print(f"Добавлено услуг: {added}")
 
 
 def create_admin(session: Session, email: str, password: str) -> None:
@@ -201,6 +345,7 @@ def seed() -> None:
     """Наполняет базу данными. Таблицы к этому моменту уже созданы командой `alembic upgrade head`."""
     with SessionLocal() as session:
         seed_hotel(session)
+        seed_services(session)
         create_admin(session, ADMIN_EMAIL, ADMIN_PASSWORD)
 
 

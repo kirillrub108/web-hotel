@@ -16,7 +16,20 @@ from pydantic import (
 
 from app import hotel_time
 from app.booking_rules import DisplayStatus, Segment, client_segment, display_status, reason_texts
-from app.models import Actor, BookingStatus, CrmStatus, PromoKind, UserRole
+from app.housekeeping import guest_can_change_slot
+from app.models import (
+    Actor,
+    BookingStatus,
+    CrmStatus,
+    HousekeepingKind,
+    HousekeepingSlot,
+    HousekeepingStatus,
+    OrderStatus,
+    PromoKind,
+    ServiceCategory,
+    ServiceUnit,
+    UserRole,
+)
 from app.passwords import PASSWORD_MAX_LENGTH
 
 EMAIL_PATTERN = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
@@ -181,12 +194,91 @@ class GuestBookingOut(ReasonsOut):
         return display_status(self.status, self.check_in, self.check_out, hotel_time.hotel_today())
 
 
+class ServiceOut(BaseModel):
+    """Услуга в каталоге: то, что видит гость."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    slug: str
+    title: str
+    description: str
+    category: ServiceCategory
+    price: int
+    unit: ServiceUnit
+
+
+class ServiceShort(BaseModel):
+    """Услуга в заказе. Есть и у деактивированной услуги: заказ остаётся читаемым."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+    category: ServiceCategory
+    unit: ServiceUnit
+    is_active: bool
+
+
+class ServiceOrderOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    service: ServiceShort
+    quantity: int
+    unit_price: int
+    total: int
+    scheduled_at: datetime
+    comment: str | None
+    status: OrderStatus
+    created_at: datetime
+
+
+class GuestServiceOrderOut(ServiceOrderOut):
+    @computed_field
+    @property
+    def can_cancel(self) -> bool:
+        return self.status == OrderStatus.NEW
+
+
+class HousekeepingTaskOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    kind: HousekeepingKind
+    slot: HousekeepingSlot
+    status: HousekeepingStatus
+    done_at: datetime | None
+    date: date
+
+    @computed_field
+    @property
+    def can_change_slot(self) -> bool:
+        return guest_can_change_slot(self.kind, self.status, self.date)
+
+
+class OrderWindow(BaseModel):
+    """Когда можно назначить заказ. Время — по часам отеля, со смещением часового пояса."""
+
+    start: datetime
+    end: datetime
+
+
 class GuestBookingDetail(BaseModel):
     booking: GuestBookingOut
     events: list[BookingEventOut]
     # Дедлайн бесплатной отмены — только у подтверждённой брони; can_cancel учитывает и статус, и время.
     cancel_deadline: datetime | None
     can_cancel: bool
+    orders: list[GuestServiceOrderOut]
+    # Итог по заказам без отменённых; оплата услуг — на ресепшене, онлайн-оплаты нет.
+    services_total: int
+    # Можно ли сейчас заказывать услуги и в какое окно должно попасть время заказа.
+    can_order: bool
+    order_window: OrderWindow | None
+    # Часы приёма заказов еды, например «08:00–23:00».
+    room_service_hours: str
+    housekeeping: list[HousekeepingTaskOut]
 
 
 class UserShort(BaseModel):
@@ -419,3 +511,96 @@ class ClientUpdate(BaseModel):
     @classmethod
     def empty_note_to_none(cls, value: str | None) -> str | None:
         return (value or "").strip() or None
+
+
+class ServiceOrderIn(BaseModel):
+    service_id: int
+    quantity: int = Field(default=1, ge=1, le=20)
+    # Время без пояса считается временем отеля: так его присылает поле datetime-local.
+    scheduled_at: datetime
+    comment: str | None = Field(default=None, max_length=500)
+
+    @field_validator("scheduled_at")
+    @classmethod
+    def attach_hotel_zone(cls, value: datetime) -> datetime:
+        return value if value.tzinfo else value.replace(tzinfo=hotel_time.HOTEL_TZ)
+
+    @field_validator("comment")
+    @classmethod
+    def empty_comment_to_none(cls, value: str | None) -> str | None:
+        return (value or "").strip() or None
+
+
+class HousekeepingSlotIn(BaseModel):
+    slot: HousekeepingSlot
+
+
+class ServiceIn(BaseModel):
+    """Создание и изменение услуги администратором. Изменение — полное: приходят все поля."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    slug: str = Field(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$", max_length=60)
+    title: str = Field(min_length=2, max_length=120)
+    description: str = Field(default="", max_length=1000)
+    category: ServiceCategory
+    price: int = Field(ge=0, le=1_000_000)
+    unit: ServiceUnit
+    is_active: bool = True
+    sort_order: int = Field(default=100, ge=0, le=10_000)
+
+
+class AdminServiceOut(ServiceOut):
+    is_active: bool
+    sort_order: int
+    orders_count: int
+
+
+class OrderStatusIn(BaseModel):
+    status: OrderStatus
+
+
+class HousekeepingStatusIn(BaseModel):
+    status: HousekeepingStatus
+
+
+class OrderBookingShort(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    guest_name: str
+    phone: str
+    room: RoomShort
+
+
+class AdminServiceOrderOut(ServiceOrderOut):
+    booking: OrderBookingShort
+
+
+class AdminHousekeepingTaskOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    kind: HousekeepingKind
+    slot: HousekeepingSlot
+    status: HousekeepingStatus
+    done_at: datetime | None
+    room: RoomShort
+    booking: OrderBookingShort
+    # Уборка после выезда, а в этот же номер сегодня заезжает другая бронь.
+    arrival_today: bool
+    date: date
+
+
+class DailySlots(BaseModel):
+    morning: list[AdminHousekeepingTaskOut]
+    day: list[AdminHousekeepingTaskOut]
+    evening: list[AdminHousekeepingTaskOut]
+
+
+class HousekeepingBoard(BaseModel):
+    checkout: list[AdminHousekeepingTaskOut]
+    daily: DailySlots
+    dnd: list[AdminHousekeepingTaskOut]
+    orders: list[AdminServiceOrderOut]
+    date: date

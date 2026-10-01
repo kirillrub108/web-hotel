@@ -131,6 +131,15 @@ export interface BookingDetail {
   events: BookingEvent[]
   cancel_deadline: string | null
   can_cancel: boolean
+  orders: GuestServiceOrder[]
+  // Итог по заказам без отменённых; услуги оплачиваются на ресепшене.
+  services_total: number
+  can_order: boolean
+  // Окно, в которое должно попасть время заказа: время отеля со смещением пояса, например 2026-10-02T14:00:00+03:00.
+  order_window: { start: string, end: string } | null
+  // Часы приёма заказов еды, например «08:00–23:00».
+  room_service_hours: string
+  housekeeping: HousekeepingTask[]
 }
 
 export interface AdminBooking extends Booking {
@@ -188,4 +197,99 @@ export interface CurrentUser {
   role: UserRole
   email_verified_at: string | null
   created_at: string
+}
+
+export type ServiceCategory = 'food' | 'housekeeping' | 'transfer' | 'wellness' | 'other'
+
+// per_item — цена за штуку, количество можно менять; per_stay — цена за всё проживание, заказ один.
+export type ServiceUnit = 'per_item' | 'per_stay'
+
+export interface Service {
+  id: number
+  slug: string
+  title: string
+  description: string
+  category: ServiceCategory
+  price: number
+  unit: ServiceUnit
+}
+
+export interface AdminService extends Service {
+  is_active: boolean
+  sort_order: number
+  orders_count: number
+}
+
+// Тело создания и изменения услуги: PATCH принимает все поля сразу.
+export interface ServiceForm {
+  slug: string
+  title: string
+  description: string
+  category: ServiceCategory
+  price: number
+  unit: ServiceUnit
+  is_active: boolean
+  sort_order: number
+}
+
+export type OrderStatus = 'new' | 'accepted' | 'done' | 'cancelled'
+
+export interface ServiceOrder {
+  id: number
+  // Услуга остаётся в заказе и после деактивации.
+  service: { id: number, title: string, category: ServiceCategory, unit: ServiceUnit, is_active: boolean }
+  quantity: number
+  unit_price: number
+  total: number
+  scheduled_at: string
+  comment: string | null
+  status: OrderStatus
+  created_at: string
+}
+
+export interface GuestServiceOrder extends ServiceOrder {
+  can_cancel: boolean
+}
+
+export interface AdminServiceOrder extends ServiceOrder {
+  booking: { id: number, guest_name: string, phone: string, room: { slug: string, name: string } }
+}
+
+export type HousekeepingKind = 'daily' | 'checkout'
+
+// Слоты ежедневной уборки: утро 09–12, день 12–15, вечер 15–18 или «не беспокоить».
+export type HousekeepingSlot = 'morning' | 'day' | 'evening' | 'dnd'
+
+export type HousekeepingStatus = 'planned' | 'done' | 'skipped'
+
+export interface HousekeepingTask {
+  id: number
+  date: string
+  kind: HousekeepingKind
+  slot: HousekeepingSlot
+  status: HousekeepingStatus
+  done_at: string | null
+  // Гость меняет слот только запланированной ежедневной уборки на дату позже сегодняшней.
+  can_change_slot: boolean
+}
+
+export interface AdminHousekeepingTask {
+  id: number
+  date: string
+  kind: HousekeepingKind
+  slot: HousekeepingSlot
+  status: HousekeepingStatus
+  done_at: string | null
+  room: { slug: string, name: string }
+  booking: { id: number, guest_name: string, phone: string }
+  // Уборка после выезда, а в этот же номер сегодня заезжает другая бронь.
+  arrival_today: boolean
+}
+
+export interface HousekeepingBoard {
+  date: string
+  checkout: AdminHousekeepingTask[]
+  daily: Record<Exclude<HousekeepingSlot, 'dnd'>, AdminHousekeepingTask[]>
+  dnd: AdminHousekeepingTask[]
+  orders: AdminServiceOrder[]
 }

@@ -1,19 +1,16 @@
 <script setup lang="ts">
-import type { Hotel, Room } from '~/types'
+import type { Hotel, Room, Service } from '~/types'
 
 const { data: hotel } = await useFetch<Hotel>('/api/hotel', { key: 'hotel' })
 const { data: rooms, error: roomsError } = await useFetch<Room[]>('/api/rooms', { key: 'rooms-all' })
 
 const popular = computed(() => (rooms.value ?? []).slice(0, 3))
 
-const services = [
-  { title: 'Завтрак', text: 'Каша, сырники и омлеты с 7:30 до 12:00 в зале на первом этаже.' },
-  { title: 'Парковка', text: 'Закрытый двор на восемь машин, бесплатно для гостей.' },
-  { title: 'Трансфер', text: 'Встретим на вокзале или в аэропорту, если предупредите заранее.' },
-  { title: 'Прачечная', text: 'Стирка и глажка вещей за сутки, приём до 18:00.' },
-  { title: 'Экскурсии', text: 'Пешие прогулки по центру с городским гидом по выходным.' },
-  { title: 'Переговорная', text: 'Комната на восемь человек с экраном и доской.' },
-]
+// На главной — по одной услуге из каждой категории; полный каталог на /services.
+const { data: services } = await useFetch<Service[]>('/api/services', { key: 'services' })
+const featured = computed(() =>
+  groupServices(services.value ?? []).map(group => group.services[0]).filter((service): service is Service => service !== undefined),
+)
 
 useHead({ title: 'Kivana — гостиница в Ярославле' })
 </script>
@@ -75,16 +72,19 @@ useHead({ title: 'Kivana — гостиница в Ярославле' })
       </div>
     </section>
 
-    <section class="section">
+    <section v-if="featured.length" class="section">
       <div class="container">
         <h2>Услуги</h2>
-        <p class="section__lead">Всё это входит в проживание или заказывается на стойке.</p>
+        <p class="section__lead">Заказывайте к подтверждённой брони в личном кабинете, оплата — на ресепшене.</p>
         <div class="grid">
-          <div v-for="service in services" :key="service.title" class="card service">
+          <div v-for="service in featured" :key="service.id" class="card service">
             <h3>{{ service.title }}</h3>
-            <p>{{ service.text }}</p>
+            <p>{{ service.description }}</p>
           </div>
         </div>
+        <p class="more">
+          <NuxtLink class="button button--ghost" to="/services">Все услуги</NuxtLink>
+        </p>
       </div>
     </section>
 
