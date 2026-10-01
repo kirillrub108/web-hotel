@@ -13,6 +13,8 @@ os.environ["DATABASE_URL"] = (
     make_url(MAIN_DATABASE_URL).set(database=TEST_DATABASE_NAME).render_as_string(hide_password=False)
 )
 os.environ["MAIL_BACKEND"] = "memory"
+# Демо-данные ломали бы остальные тесты (занятые даты, чужие клиенты): сид в тестах только со справочниками.
+os.environ["SEED_DEMO"] = "false"
 
 import pytest  # noqa: E402
 from alembic import command  # noqa: E402
@@ -21,6 +23,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import create_engine, select, text  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
+import seed  # noqa: E402
 from app import mail  # noqa: E402
 from app.booking_rules import calculate_price  # noqa: E402
 from app.database import engine, get_db  # noqa: E402
@@ -28,7 +31,6 @@ from app.main import app  # noqa: E402
 from app.models import Booking, BookingStatus, Room, User, UserRole  # noqa: E402
 from app.passwords import hash_password  # noqa: E402
 from app.security import account_limiters, booking_limiters, login_limiters  # noqa: E402
-from seed import seed  # noqa: E402
 
 PASSWORD = "lantern copper orbit meadow"
 # Argon2 намеренно медленный: один хэш на все тестовые аккаунты заметно ускоряет прогон.
@@ -49,7 +51,7 @@ def test_database() -> Iterator[None]:
 
     # Схему создают те же миграции, что и в рабочей базе: в них btree_gist и ограничение на пересечение броней.
     command.upgrade(ALEMBIC_CONFIG, "head")
-    seed()
+    seed.main()
     yield
     engine.dispose()
 

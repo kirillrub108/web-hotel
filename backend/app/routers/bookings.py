@@ -1,16 +1,14 @@
 import os
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
-from sqlalchemy import exists, func, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import hotel_time
-from app.booking_lifecycle import change_status, dates_taken, expire_stale_pending, overlapping
-from app.booking_rules import calculate_price, decide
+from app.booking_lifecycle import dates_taken, expire_stale_pending, submit_booking
 from app.database import get_db
 from app.mail import send_mail
 from app.mail_templates import admin_review_mail, booking_review_mail
-from app.models import Actor, Booking, BookingStatus, Room, User
+from app.models import Booking, BookingStatus, Room, User
 from app.promos import find_promo
 from app.schemas import BookingCreate, GuestBookingOut
 from app.security import booking_limiters
@@ -76,67 +74,24 @@ def create_booking(
             lock=True,
         )
 
-    # Факты для движка правил собираются здесь: сам decide() в базу не ходит.
-    today = hotel_time.hotel_today()
-    price = calculate_price(room.price_per_night, payload.check_in, payload.check_out, promo)
-    has_completed_stay = db.scalar(
-        select(
-            exists().where(
-                Booking.user_id == user.id,
-                Booking.status == BookingStatus.CONFIRMED,
-                Booking.check_out <= today,
-            )
-        )
-    )
-    has_pending_conflict = db.scalar(
-        select(overlapping(room.id, payload.check_in, payload.check_out, BookingStatus.PENDING).exists())
-    )
-    decision = decide(
-        crm_status=user.crm_status,
-        nights=price.nights,
-        total=price.total,
-        check_in=payload.check_in,
-        today=today,
-        has_comment=payload.comment is not None,
-        has_completed_stay=bool(has_completed_stay),
-        has_pending_conflict=bool(has_pending_conflict),
-    )
-
-    booking = Booking(
-        user=user,
-        room=room,
+    booking = submit_booking(
+        db,
+        background,
+        user,
+        room,
         guest_name=payload.guest_name,
         phone=payload.phone,
         check_in=payload.check_in,
         check_out=payload.check_out,
         guests=payload.guests,
         comment=payload.comment,
-        nights=price.nights,
-        price_per_night=price.price_per_night,
-        discount=price.discount,
-        total_price=price.total,
         promo=promo,
     )
-    db.add(booking)
-    # Заявка рождается в pending: событие создания пишется в журнал без письма.
-    # Гость получает ровно одно письмо — об итоговом статусе после decide().
-    on_review = decision.status == BookingStatus.PENDING
-    change_status(
-        db,
-        booking,
-        BookingStatus.PENDING,
-        Actor.GUEST,
-        background,
-        actor_user_id=user.id,
-        reason_codes=decision.reasons if on_review else [],
-    )
-    if on_review:
-        # Перехода нет — заявка остаётся в pending, поэтому письмо «на рассмотрении» отправляется здесь.
+    if booking.status == BookingStatus.PENDING:
+        # Перехода нет — заявка осталась в pending, поэтому письмо «на рассмотрении» отправляется здесь.
+        # В остальных случаях письмо об итоге отправляет сам системный переход.
         background.add_task(send_mail, booking_review_mail(booking))
         if ADMIN_NOTIFY_EMAIL:
             background.add_task(send_mail, admin_review_mail(ADMIN_NOTIFY_EMAIL, booking))
-    else:
-        # Письмо «подтверждена» или «отклонена» отправляет сам системный переход.
-        change_status(db, booking, decision.status, Actor.SYSTEM, background, reason_codes=decision.reasons)
     db.commit()
     return booking

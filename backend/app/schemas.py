@@ -72,6 +72,32 @@ class RoomOut(BaseModel):
     is_available: bool
 
 
+class RoomIn(BaseModel):
+    """Изменение номера администратором: цена, описание и доступность для новых броней. Приходят все три поля."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    price_per_night: int
+    description: str
+    is_available: bool
+
+    @field_validator("price_per_night")
+    @classmethod
+    def check_price(cls, value: int) -> int:
+        if not 0 < value <= 1_000_000:
+            raise ValueError("Цена за ночь — от 1 до 1 000 000 ₽")
+        return value
+
+    @field_validator("description")
+    @classmethod
+    def check_description(cls, value: str) -> str:
+        if not value:
+            raise ValueError("Описание не может быть пустым")
+        if len(value) > 2000:
+            raise ValueError("Описание не длиннее 2000 символов")
+        return value
+
+
 class StayIn(BaseModel):
     """Даты и число гостей: общие проверки для котировки и создания брони."""
 
