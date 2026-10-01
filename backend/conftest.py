@@ -4,10 +4,10 @@ from pathlib import Path
 
 from sqlalchemy.engine import make_url
 
-# Тесты работают в отдельной базе hotel_test на том же сервере, рабочие данные не трогаются.
+# Тесты работают в отдельной базе kivana_test на том же сервере, рабочие данные не трогаются.
 # Переменные задаются до первого импорта app: database.py и security.py читают их при импорте.
-MAIN_DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql+psycopg://hotel:hotel@localhost:5432/hotel")
-TEST_DATABASE_NAME = "hotel_test"
+MAIN_DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql+psycopg://kivana:kivana@localhost:5432/kivana")
+TEST_DATABASE_NAME = "kivana_test"
 os.environ["DATABASE_URL"] = (
     make_url(MAIN_DATABASE_URL).set(database=TEST_DATABASE_NAME).render_as_string(hide_password=False)
 )

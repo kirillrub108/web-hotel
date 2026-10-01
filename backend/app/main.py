@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from app.routers import admin, bookings, hotel, rooms
 
 app = FastAPI(
-    title="API гостиницы «Тихая гавань»",
+    title="API гостиницы Kivana",
     description="JSON API сайта гостиницы: данные отеля, каталог номеров, заявки на бронирование и их обработка.",
     version="1.0.0",
 )

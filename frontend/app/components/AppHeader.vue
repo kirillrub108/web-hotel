@@ -6,7 +6,7 @@ const isMenuOpen = ref(false)
   <header class="header">
     <div class="container header__inner">
       <NuxtLink to="/" class="header__logo" @click="isMenuOpen = false">
-        Тихая гавань
+        Kivana
       </NuxtLink>
 
       <button

@@ -54,7 +54,7 @@ def test_health(client: TestClient) -> None:
 def test_hotel(client: TestClient) -> None:
     response = client.get("/api/hotel")
     assert response.status_code == 200
-    assert response.json()["name"] == "Тихая гавань"
+    assert response.json()["name"] == "Kivana"
 
 
 def test_list_rooms(client: TestClient) -> None:

@@ -18,7 +18,7 @@ function reset(): void {
   maxPrice.value = 0
 }
 
-useHead({ title: 'Номера — Тихая гавань' })
+useHead({ title: 'Номера — Kivana' })
 </script>
 
 <template>

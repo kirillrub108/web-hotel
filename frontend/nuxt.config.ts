@@ -12,7 +12,7 @@ export default defineNuxtConfig({
     head: {
       htmlAttrs: { lang: 'ru' },
       meta: [
-        { name: 'description', content: 'Гостиница «Тихая гавань» в центре Ярославля: номера от эконома до апартаментов, завтрак, парковка.' },
+        { name: 'description', content: 'Гостиница Kivana в центре Ярославля: номера от эконома до апартаментов, завтрак, парковка.' },
       ],
       link: [{ rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
     },

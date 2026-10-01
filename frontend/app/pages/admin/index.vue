@@ -81,7 +81,7 @@ function formatCreated(isoDateTime: string): string {
 }
 
 useHead({
-  title: 'Заявки — Тихая гавань',
+  title: 'Заявки — Kivana',
   meta: [{ name: 'robots', content: 'noindex' }],
 })
 </script>

@@ -20,7 +20,7 @@ async function submit(): Promise<void> {
 }
 
 useHead({
-  title: 'Вход для администратора — Тихая гавань',
+  title: 'Вход для администратора — Kivana',
   meta: [{ name: 'robots', content: 'noindex' }],
 })
 </script>
