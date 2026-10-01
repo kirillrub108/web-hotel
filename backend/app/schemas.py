@@ -1,13 +1,21 @@
 import re
 from datetime import date, datetime
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, field_validator, model_validator
 
-from app.models import BookingStatus
+from app.models import BookingStatus, UserRole
+from app.passwords import PASSWORD_MAX_LENGTH
 
 EMAIL_PATTERN = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
 MAX_CHECK_IN_ADVANCE_DAYS = 365
 MAX_STAY_NIGHTS = 90
+
+
+def validate_phone(value: str) -> str:
+    if not 10 <= len(re.sub(r"\D", "", value)) <= 15:
+        raise ValueError("Укажите телефон полностью, например +7 900 000-00-00")
+    return value
 
 
 class HotelOut(BaseModel):
@@ -54,9 +62,7 @@ class BookingCreate(BaseModel):
     @field_validator("phone")
     @classmethod
     def check_phone(cls, value: str) -> str:
-        if not 10 <= len(re.sub(r"\D", "", value)) <= 15:
-            raise ValueError("Укажите телефон полностью, например +7 900 000-00-00")
-        return value
+        return validate_phone(value)
 
     @model_validator(mode="after")
     def check_dates(self) -> "BookingCreate":
@@ -109,6 +115,70 @@ class BookingStatusUpdate(BaseModel):
     status: BookingStatus
 
 
-class AdminLogin(BaseModel):
-    username: str = Field(max_length=120)
-    password: str = Field(max_length=200)
+def normalize_email(value: object) -> object:
+    return value.strip().lower() if isinstance(value, str) else value
+
+
+# Пароли в схемах не обрезаются по краям: пробел — допустимый символ пароля.
+Email = Annotated[str, BeforeValidator(normalize_email), Field(pattern=EMAIL_PATTERN, max_length=254)]
+FullName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=120)]
+CurrentPassword = Annotated[str, Field(min_length=1, max_length=PASSWORD_MAX_LENGTH)]
+
+
+class RegisterIn(BaseModel):
+    email: Email
+    full_name: FullName
+    password: str
+    consent: bool
+
+    @field_validator("consent")
+    @classmethod
+    def check_consent(cls, value: bool) -> bool:
+        if not value:
+            raise ValueError("Нужно согласие на обработку персональных данных")
+        return value
+
+
+class LoginIn(BaseModel):
+    email: Email
+    password: CurrentPassword
+
+
+class EmailIn(BaseModel):
+    email: Email
+
+
+class TokenIn(BaseModel):
+    token: str = Field(max_length=100)
+
+
+class ResetPasswordIn(TokenIn):
+    password: str
+
+
+class ChangePasswordIn(BaseModel):
+    current_password: CurrentPassword
+    new_password: str
+
+
+class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    email: str
+    full_name: str
+    phone: str | None
+    role: UserRole
+    email_verified_at: datetime | None
+    created_at: datetime
+
+
+class ProfileUpdate(BaseModel):
+    full_name: FullName
+    phone: str | None = Field(default=None, max_length=40)
+
+    @field_validator("phone")
+    @classmethod
+    def check_phone(cls, value: str | None) -> str | None:
+        value = (value or "").strip()
+        return validate_phone(value) if value else None

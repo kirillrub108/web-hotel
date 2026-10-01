@@ -15,7 +15,7 @@ const services = [
   { title: 'Переговорная', text: 'Комната на восемь человек с экраном и доской.' },
 ]
 
-useHead({ title: 'Тихая гавань — гостиница в Ярославле' })
+useHead({ title: 'Kivana — гостиница в Ярославле' })
 </script>
 
 <template>
@@ -23,7 +23,7 @@ useHead({ title: 'Тихая гавань — гостиница в Яросла
     <section class="hero">
       <div class="container">
         <p class="hero__tag">Гостиница в центре Ярославля</p>
-        <h1>{{ hotel?.name ?? 'Тихая гавань' }}</h1>
+        <h1>{{ hotel?.name ?? 'Kivana' }}</h1>
         <p class="hero__tagline">{{ hotel?.tagline }}</p>
         <div class="hero__actions">
           <NuxtLink class="button" to="/rooms">Посмотреть номера</NuxtLink>

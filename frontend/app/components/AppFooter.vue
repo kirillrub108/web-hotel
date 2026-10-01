@@ -8,7 +8,7 @@ const { data: hotel } = await useFetch<Hotel>('/api/hotel', { key: 'hotel' })
   <footer class="footer">
     <div class="container footer__inner">
       <div>
-        <p class="footer__title">{{ hotel?.name ?? 'Тихая гавань' }}</p>
+        <p class="footer__title">{{ hotel?.name ?? 'Kivana' }}</p>
         <p class="footer__muted">{{ hotel?.tagline }}</p>
       </div>
 

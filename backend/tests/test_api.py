@@ -3,27 +3,13 @@ from datetime import date, timedelta
 import pytest
 from fastapi import HTTPException, Request
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
-from app import security
-from app.database import SessionLocal
-from app.main import app
 from app.models import Room
 from app.security import RateLimiter
 from seed import ROOMS
 
-STANDART_ID = 2  # порядок вставки в seed.ROOMS, идентификаторы сбрасываются перед каждым тестом
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
-
-
-@pytest.fixture
-def admin(client: TestClient) -> TestClient:
-    response = client.post("/api/admin/login", json={"username": "admin", "password": "test-password"})
-    assert response.status_code == 204
-    return client
+STANDART_ID = 2  # порядок вставки в seed.ROOMS: сид создаёт номера один раз, тесты откатывают свои изменения
 
 
 def days_ahead(days: int) -> str:
@@ -54,7 +40,7 @@ def test_health(client: TestClient) -> None:
 def test_hotel(client: TestClient) -> None:
     response = client.get("/api/hotel")
     assert response.status_code == 200
-    assert response.json()["name"] == "Тихая гавань"
+    assert response.json()["name"] == "Kivana"
 
 
 def test_list_rooms(client: TestClient) -> None:
@@ -141,10 +127,9 @@ def test_booking_unknown_room_returns_404(client: TestClient) -> None:
     assert client.post("/api/bookings", json=booking(room_id=999)).status_code == 404
 
 
-def test_booking_unavailable_room_returns_400(client: TestClient) -> None:
-    with SessionLocal() as session:
-        session.get_one(Room, STANDART_ID).is_available = False
-        session.commit()
+def test_booking_unavailable_room_returns_400(client: TestClient, db: Session) -> None:
+    db.get_one(Room, STANDART_ID).is_available = False
+    db.flush()
     assert client.post("/api/bookings", json=booking()).status_code == 400
 
 
@@ -153,72 +138,37 @@ def test_new_bookings_do_not_block_dates(client: TestClient) -> None:
     assert client.post("/api/bookings", json=booking()).status_code == 201
 
 
-def test_confirmed_booking_blocks_overlapping_dates(admin: TestClient) -> None:
-    booking_id = admin.post("/api/bookings", json=booking()).json()["id"]
-    assert admin.patch(f"/api/admin/bookings/{booking_id}", json={"status": "confirmed"}).status_code == 200
+def test_confirmed_booking_blocks_overlapping_dates(admin_client: TestClient) -> None:
+    booking_id = admin_client.post("/api/bookings", json=booking()).json()["id"]
+    assert admin_client.patch(f"/api/admin/bookings/{booking_id}", json={"status": "confirmed"}).status_code == 200
 
-    overlapping = admin.post("/api/bookings", json=booking(check_in=days_ahead(12), check_out=days_ahead(15)))
+    overlapping = admin_client.post("/api/bookings", json=booking(check_in=days_ahead(12), check_out=days_ahead(15)))
     assert overlapping.status_code == 409
 
-    same_day_turnover = admin.post("/api/bookings", json=booking(check_in=days_ahead(13), check_out=days_ahead(15)))
+    same_day_turnover = admin_client.post("/api/bookings", json=booking(check_in=days_ahead(13), check_out=days_ahead(15)))
     assert same_day_turnover.status_code == 201
 
 
-def test_confirming_second_overlapping_booking_returns_409(admin: TestClient) -> None:
-    first = admin.post("/api/bookings", json=booking()).json()["id"]
-    second = admin.post("/api/bookings", json=booking()).json()["id"]
+def test_confirming_second_overlapping_booking_returns_409(admin_client: TestClient) -> None:
+    first = admin_client.post("/api/bookings", json=booking()).json()["id"]
+    second = admin_client.post("/api/bookings", json=booking()).json()["id"]
 
-    assert admin.patch(f"/api/admin/bookings/{first}", json={"status": "confirmed"}).status_code == 200
-    assert admin.patch(f"/api/admin/bookings/{second}", json={"status": "confirmed"}).status_code == 409
-    assert admin.patch(f"/api/admin/bookings/{second}", json={"status": "cancelled"}).status_code == 200
-
-
-def test_admin_requires_login(client: TestClient) -> None:
-    assert client.get("/api/admin/bookings").status_code == 401
-    assert client.patch("/api/admin/bookings/1", json={"status": "confirmed"}).status_code == 401
+    assert admin_client.patch(f"/api/admin/bookings/{first}", json={"status": "confirmed"}).status_code == 200
+    assert admin_client.patch(f"/api/admin/bookings/{second}", json={"status": "confirmed"}).status_code == 409
+    assert admin_client.patch(f"/api/admin/bookings/{second}", json={"status": "cancelled"}).status_code == 200
 
 
-def test_admin_rejects_wrong_password(client: TestClient) -> None:
-    response = client.post("/api/admin/login", json={"username": "admin", "password": "wrong"})
-    assert response.status_code == 401
+def test_admin_lists_and_filters_bookings(admin_client: TestClient) -> None:
+    first = admin_client.post("/api/bookings", json=booking()).json()["id"]
+    admin_client.post("/api/bookings", json=booking())
+    admin_client.patch(f"/api/admin/bookings/{first}", json={"status": "cancelled"})
 
-
-def test_admin_lists_and_filters_bookings(admin: TestClient) -> None:
-    first = admin.post("/api/bookings", json=booking()).json()["id"]
-    admin.post("/api/bookings", json=booking())
-    admin.patch(f"/api/admin/bookings/{first}", json={"status": "cancelled"})
-
-    everything = admin.get("/api/admin/bookings").json()
+    everything = admin_client.get("/api/admin/bookings").json()
     assert everything["total"] == 2
     assert everything["items"][0]["room"]["slug"] == "standart"
 
-    cancelled = admin.get("/api/admin/bookings", params={"status": "cancelled"}).json()
+    cancelled = admin_client.get("/api/admin/bookings", params={"status": "cancelled"}).json()
     assert [item["id"] for item in cancelled["items"]] == [first]
-
-
-def test_login_disabled_without_admin_password(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("app.routers.admin.ADMIN_PASSWORD", "")
-    monkeypatch.setattr("app.security.ADMIN_PASSWORD", "")
-    response = client.post("/api/admin/login", json={"username": "admin", "password": ""})
-    assert response.status_code == 503
-
-
-def test_session_token_rejects_tampering_and_expiry() -> None:
-    token = security.make_session_token()
-    assert security.session_is_valid(token)
-
-    payload, _, signature = token.rpartition(":")
-    username, _, _ = payload.rpartition(":")
-    assert not security.session_is_valid(f"{username}:9999999999:{signature}")
-
-    expired = f"{username}:1"
-    assert not security.session_is_valid(f"{expired}:{security._sign(expired)}")
-    assert not security.session_is_valid("")
-
-
-def test_admin_logout(admin: TestClient) -> None:
-    assert admin.post("/api/admin/logout").status_code == 204
-    assert admin.get("/api/admin/me").status_code == 401
 
 
 def test_booking_rate_limit(client: TestClient) -> None:

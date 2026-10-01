@@ -12,10 +12,14 @@ export default defineNuxtConfig({
     head: {
       htmlAttrs: { lang: 'ru' },
       meta: [
-        { name: 'description', content: 'Гостиница «Тихая гавань» в центре Ярославля: номера от эконома до апартаментов, завтрак, парковка.' },
+        { name: 'description', content: 'Гостиница Kivana в центре Ярославля: номера от эконома до апартаментов, завтрак, парковка.' },
       ],
       link: [{ rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
     },
+  },
+  runtimeConfig: {
+    // Переопределяется переменной NUXT_PUBLIC_PASSWORD_MIN_LENGTH — в compose она берётся из PASSWORD_MIN_LENGTH backend.
+    public: { passwordMinLength: 15 },
   },
   routeRules: {
     '/api/**': { proxy: `${apiBase}/api/**` },

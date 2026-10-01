@@ -1,10 +1,12 @@
+name: kivana
+
 services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-hotel}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hotel}
-      POSTGRES_DB: ${POSTGRES_DB:-hotel}
+      POSTGRES_USER: ${POSTGRES_USER:-kivana}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kivana}
+      POSTGRES_DB: ${POSTGRES_DB:-kivana}
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
@@ -12,7 +14,7 @@ services:
     healthcheck:
       # -h 127.0.0.1: проверка по TCP. Через unix-сокет pg_isready отвечает «готово» ещё во время
       # первичной инициализации, когда временный сервер TCP не слушает.
-      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${POSTGRES_USER:-hotel} -d ${POSTGRES_DB:-hotel}"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${POSTGRES_USER:-kivana} -d ${POSTGRES_DB:-kivana}"]
       interval: 5s
       timeout: 5s
       retries: 12
@@ -20,14 +22,20 @@ services:
   backend:
     build: ./backend
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-hotel}:${POSTGRES_PASSWORD:-hotel}@db:5432/${POSTGRES_DB:-hotel}
-      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
-      SECRET_KEY: ${SECRET_KEY:-}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-kivana}:${POSTGRES_PASSWORD:-kivana}@db:5432/${POSTGRES_DB:-kivana}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
+      MAIL_BACKEND: ${MAIL_BACKEND:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-Kivana <no-reply@kivana.ru>}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@kivana.ru}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-tidy copper lantern orbit}
+      PASSWORD_MIN_LENGTH: ${PASSWORD_MIN_LENGTH:-15}
+      SESSION_TTL_GUEST_DAYS: ${SESSION_TTL_GUEST_DAYS:-14}
+      SESSION_TTL_ADMIN_HOURS: ${SESSION_TTL_ADMIN_HOURS:-12}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       # uvicorn берёт IP клиента из X-Forwarded-For, который выставляет прокси во frontend.
       FORWARDED_ALLOW_IPS: "*"
-    # Порядок важен: миграции создают схему, сид наполняет пустую базу, затем стартует приложение.
+    # Порядок важен: миграции создают схему, сид добавляет данные и администратора, затем стартует приложение.
     command: sh -c "alembic upgrade head && python seed.py && uvicorn app.main:app --reload --host 0.0.0.0"
     ports:
       - "127.0.0.1:8000:8000"
@@ -41,6 +49,8 @@ services:
     build: ./frontend
     environment:
       API_BASE: http://backend:8000
+      # Та же минимальная длина пароля, что у backend: по ней поле пароля показывает, сколько осталось.
+      NUXT_PUBLIC_PASSWORD_MIN_LENGTH: ${PASSWORD_MIN_LENGTH:-15}
       WATCH_POLLING: ${WATCH_POLLING:-true}
     ports:
       - "3000:3000"

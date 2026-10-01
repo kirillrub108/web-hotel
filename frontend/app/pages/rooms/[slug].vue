@@ -12,7 +12,7 @@ if (!room.value) {
     : createError({ statusCode: 503, message: 'Сайт временно недоступен', fatal: true })
 }
 
-useHead({ title: room.value.name + ' — Тихая гавань' })
+useHead({ title: room.value.name + ' — Kivana' })
 </script>
 
 <template>

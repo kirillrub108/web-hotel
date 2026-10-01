@@ -3,7 +3,7 @@ import type { Hotel } from '~/types'
 
 const { data: hotel } = await useFetch<Hotel>('/api/hotel', { key: 'hotel' })
 
-useHead({ title: 'Контакты — Тихая гавань' })
+useHead({ title: 'Контакты — Kivana' })
 </script>
 
 <template>

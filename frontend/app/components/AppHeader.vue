@@ -1,12 +1,13 @@
 <script setup lang="ts">
 const isMenuOpen = ref(false)
+const { user } = useCurrentUser()
 </script>
 
 <template>
   <header class="header">
     <div class="container header__inner">
       <NuxtLink to="/" class="header__logo" @click="isMenuOpen = false">
-        Тихая гавань
+        Kivana
       </NuxtLink>
 
       <button
@@ -23,6 +24,9 @@ const isMenuOpen = ref(false)
         <NuxtLink to="/" @click="isMenuOpen = false">Главная</NuxtLink>
         <NuxtLink to="/rooms" @click="isMenuOpen = false">Номера</NuxtLink>
         <NuxtLink to="/contacts" @click="isMenuOpen = false">Контакты</NuxtLink>
+        <NuxtLink v-if="user?.role === 'admin'" to="/admin" @click="isMenuOpen = false">Админка</NuxtLink>
+        <NuxtLink v-if="user" to="/account" @click="isMenuOpen = false">Кабинет</NuxtLink>
+        <NuxtLink v-else to="/login" @click="isMenuOpen = false">Войти</NuxtLink>
       </nav>
     </div>
   </header>

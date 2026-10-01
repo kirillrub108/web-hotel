@@ -1,3 +1,7 @@
+<script setup lang="ts">
+await useCurrentUser().load()
+</script>
+
 <template>
   <AppHeader />
   <main>

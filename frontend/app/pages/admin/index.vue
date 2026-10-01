@@ -9,6 +9,14 @@ const statusLabels: Record<BookingStatus, string> = {
   cancelled: 'Отменена',
 }
 
+const { clear } = useCurrentUser()
+
+// Сессия могла истечь, пока страница открыта: тогда API отвечает 401 и нужен повторный вход.
+async function toLogin(): Promise<void> {
+  clear()
+  await navigateTo({ path: '/login', query: { next: '/admin' } })
+}
+
 const statusFilter = ref<BookingStatus | ''>('')
 const page = ref(0)
 
@@ -25,7 +33,7 @@ const query = computed(() => ({
 const { data, error, refresh } = await useFetch<AdminBookingPage>('/api/admin/bookings', { query })
 
 if (error.value?.statusCode === 401) {
-  await navigateTo('/admin/login')
+  await toLogin()
 }
 
 const total = computed(() => data.value?.total ?? 0)
@@ -44,7 +52,7 @@ async function setStatus(id: number, status: BookingStatus): Promise<void> {
   catch (err) {
     const failure = err as { statusCode?: number, data?: { detail?: unknown } }
     if (failure.statusCode === 401) {
-      await navigateTo('/admin/login')
+      await toLogin()
       return
     }
     actionError.value = typeof failure.data?.detail === 'string'
@@ -57,8 +65,9 @@ async function setStatus(id: number, status: BookingStatus): Promise<void> {
 }
 
 async function logout(): Promise<void> {
-  await $fetch('/api/admin/logout', { method: 'POST' })
-  await navigateTo('/admin/login')
+  await $fetch('/api/auth/logout', { method: 'POST' })
+  clear()
+  await navigateTo('/login')
 }
 
 function formatDate(isoDate: string): string {
@@ -81,7 +90,7 @@ function formatCreated(isoDateTime: string): string {
 }
 
 useHead({
-  title: 'Заявки — Тихая гавань',
+  title: 'Заявки — Kivana',
   meta: [{ name: 'robots', content: 'noindex' }],
 })
 </script>
