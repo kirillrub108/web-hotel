@@ -20,7 +20,10 @@ async function toLogin(): Promise<void> {
   await navigateTo({ path: '/login', query: { next: '/admin' } })
 }
 
-const statusFilter = ref<BookingStatus | ''>('pending')
+// Ссылки из карточки клиента открывают нужную вкладку: /admin?status=confirmed.
+const route = useRoute()
+const requested = TABS.find(tab => tab.value !== '' && tab.value === route.query.status)
+const statusFilter = ref<BookingStatus | ''>(requested?.value ?? 'pending')
 const page = ref(0)
 
 watch(statusFilter, () => {
@@ -91,6 +94,7 @@ useHead({
 <template>
   <section class="section">
     <div class="container">
+      <AdminNav />
       <div class="toolbar">
         <h1>Заявки</h1>
         <button class="button button--ghost" type="button" @click="logout">Выйти</button>
@@ -118,7 +122,7 @@ useHead({
       </p>
 
       <div v-else-if="data && data.items.length" class="card table-wrap">
-        <table>
+        <table class="data-table">
           <thead>
             <tr>
               <th>Создана</th>
@@ -147,7 +151,12 @@ useHead({
                   {{ formatDate(item.check_in) }} — {{ formatDate(item.check_out) }}<br>
                   <span class="muted">{{ nightsLabel(item.nights) }}, гостей: {{ item.guests }}</span>
                 </td>
-                <td class="nowrap">{{ formatRubles(item.total_price) }}</td>
+                <td class="nowrap">
+                  {{ formatRubles(item.total_price) }}
+                  <template v-if="item.promo">
+                    <br><span class="muted">−{{ formatRubles(item.discount) }}, {{ item.promo.code }}</span>
+                  </template>
+                </td>
                 <td class="reasons">
                   <StatusBadge :status="item.display_status" />
                   <ul v-if="item.reasons.length">
@@ -230,65 +239,6 @@ useHead({
   margin: 0;
 }
 
-.tabs {
-  display: flex;
-  gap: var(--space-1);
-  flex-wrap: wrap;
-  margin-bottom: var(--space-3);
-}
-
-.tabs__item {
-  padding: 8px 16px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  cursor: pointer;
-}
-
-.tabs__item--active {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: #fff;
-}
-
-.table-wrap {
-  overflow-x: auto;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.92rem;
-}
-
-th,
-td {
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--border);
-  text-align: left;
-  vertical-align: top;
-}
-
-th {
-  color: var(--muted);
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-tbody tr:last-child td {
-  border-bottom: 0;
-}
-
-.nowrap {
-  white-space: nowrap;
-}
-
-.muted {
-  color: var(--muted);
-}
-
 .crm {
   margin-left: 6px;
 }
@@ -320,38 +270,7 @@ tbody tr:last-child td {
   gap: 6px;
 }
 
-.button--small {
-  padding: 6px 14px;
-  font-size: 0.88rem;
-  white-space: nowrap;
-}
-
-.link-button {
-  padding: 4px 0;
-  border: 0;
-  background: none;
-  color: var(--accent-dark);
-  font: inherit;
-  font-size: 0.88rem;
-  cursor: pointer;
-  text-align: left;
-}
-
 .history td {
   background: var(--bg);
-}
-
-.empty {
-  padding: var(--space-4);
-  text-align: center;
-  color: var(--muted);
-}
-
-.pager {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  margin-top: var(--space-3);
 }
 </style>

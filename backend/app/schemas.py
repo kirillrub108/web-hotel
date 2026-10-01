@@ -15,8 +15,8 @@ from pydantic import (
 )
 
 from app import hotel_time
-from app.booking_rules import DisplayStatus, display_status, reason_texts
-from app.models import Actor, BookingStatus, CrmStatus, UserRole
+from app.booking_rules import DisplayStatus, Segment, client_segment, display_status, reason_texts
+from app.models import Actor, BookingStatus, CrmStatus, PromoKind, UserRole
 from app.passwords import PASSWORD_MAX_LENGTH
 
 EMAIL_PATTERN = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
@@ -65,6 +65,13 @@ class StayIn(BaseModel):
     check_in: date
     check_out: date
     guests: int = Field(ge=1, le=20)
+    # Промокод необязателен; применимость кода проверяет backend при расчёте цены.
+    promo_code: str | None = Field(default=None, max_length=32)
+
+    @field_validator("promo_code")
+    @classmethod
+    def empty_promo_to_none(cls, value: str | None) -> str | None:
+        return (value or "").strip() or None
 
     @model_validator(mode="after")
     def check_dates(self) -> "StayIn":
@@ -108,6 +115,7 @@ class QuoteOut(BaseModel):
     subtotal: int
     discount: int
     total: int
+    promo_title: str | None
 
 
 class RoomShort(BaseModel):
@@ -115,6 +123,13 @@ class RoomShort(BaseModel):
 
     slug: str
     name: str
+
+
+class PromoShort(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    code: str
+    title: str
 
 
 class ReasonsOut(BaseModel):
@@ -156,6 +171,7 @@ class GuestBookingOut(ReasonsOut):
     price_per_night: int
     discount: int
     total_price: int
+    promo: PromoShort | None
     created_at: datetime
     cancelled_at: datetime | None
 
@@ -293,3 +309,113 @@ class ProfileUpdate(BaseModel):
     def check_phone(cls, value: str | None) -> str | None:
         value = (value or "").strip()
         return validate_phone(value) if value else None
+
+
+class PromoOffer(BaseModel):
+    """Предложение гостю в кабинете: условия акции без служебных полей."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    code: str
+    title: str
+    description: str
+    kind: PromoKind
+    value: int
+    valid_from: date
+    valid_to: date
+    min_nights: int
+    room_id: int | None
+    room: RoomShort | None
+    user_id: int | None = Field(exclude=True)
+
+    @computed_field
+    @property
+    def is_personal(self) -> bool:
+        return self.user_id is not None
+
+
+class PromoIn(BaseModel):
+    """Создание и изменение акции администратором. Изменение — полное: приходят все поля."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    code: Annotated[str, BeforeValidator(lambda v: v.strip().upper() if isinstance(v, str) else v)] = Field(
+        pattern=r"^[A-Z0-9_-]{3,32}$"
+    )
+    title: str = Field(min_length=2, max_length=120)
+    description: str = Field(default="", max_length=1000)
+    kind: PromoKind
+    value: int = Field(ge=1, le=1_000_000)
+    valid_from: date
+    valid_to: date
+    min_nights: int = Field(default=1, ge=1, le=MAX_STAY_NIGHTS)
+    room_id: int | None = None
+    user_id: int | None = None
+    is_active: bool = True
+
+    @model_validator(mode="after")
+    def check_terms(self) -> "PromoIn":
+        if self.kind == PromoKind.PERCENT and self.value > 100:
+            raise ValueError("Процент скидки — от 1 до 100")
+        if self.valid_to < self.valid_from:
+            raise ValueError("Дата окончания не может быть раньше даты начала")
+        return self
+
+
+class AdminPromoOut(PromoOffer):
+    is_active: bool
+    created_at: datetime
+    user: UserShort | None
+    # Занят ли код бронью в статусе pending или confirmed, и сколько всего броней на нём было.
+    in_use: bool
+    bookings_count: int
+
+
+class ClientOut(BaseModel):
+    """Клиент в CRM. Показатели вычисляются запросом (crm.client_select), в таблице users их нет."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    email: str
+    full_name: str
+    phone: str | None
+    crm_status: CrmStatus
+    crm_note: str | None
+    created_at: datetime
+    last_activity_at: datetime
+    # Завершённые проживания: подтверждённые брони с выездом не позже сегодняшнего дня.
+    stays: int
+    nights: int
+    # Выручка — по всем подтверждённым броням, в том числе предстоящим.
+    revenue: int
+    last_stay_at: date | None
+
+    @computed_field
+    @property
+    def segment(self) -> Segment:
+        return client_segment(self.stays)
+
+
+class ClientPage(BaseModel):
+    items: list[ClientOut]
+    total: int
+
+
+class ClientDetail(BaseModel):
+    client: ClientOut
+    bookings: list[AdminBookingOut]
+    promos: list[AdminPromoOut]
+
+
+class ClientUpdate(BaseModel):
+    """Частичное изменение: сохраняются только присланные поля."""
+
+    crm_status: CrmStatus | None = None
+    crm_note: str | None = Field(default=None, max_length=2000)
+
+    @field_validator("crm_note")
+    @classmethod
+    def empty_note_to_none(cls, value: str | None) -> str | None:
+        return (value or "").strip() or None

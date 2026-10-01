@@ -22,7 +22,7 @@ def list_bookings(
     expire_stale_pending(db, background)
     db.commit()
 
-    query = select(Booking).options(joinedload(Booking.room), joinedload(Booking.user))
+    query = select(Booking).options(joinedload(Booking.room), joinedload(Booking.user), joinedload(Booking.promo))
     count_query = select(func.count(Booking.id))
     if status_filter is not None:
         query = query.where(Booking.status == status_filter)

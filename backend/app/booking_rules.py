@@ -1,4 +1,5 @@
-"""Правила брони без обращений к БД: цена, авто-решение по новой заявке, отображаемый статус, тексты причин.
+"""Правила брони без обращений к БД: цена и скидка по промокоду, авто-решение по новой заявке, отображаемый статус,
+тексты причин.
 
 Все факты приходят аргументами, поэтому правила проверяются табличными тестами без базы.
 """
@@ -7,11 +8,13 @@ from dataclasses import dataclass
 from datetime import date
 from enum import StrEnum
 
-from app.models import BookingStatus, CrmStatus
+from app.models import BookingStatus, CrmStatus, Promo, PromoKind
 
 AUTO_CONFIRM_MAX_NIGHTS = int(os.getenv("AUTO_CONFIRM_MAX_NIGHTS", "7"))
 AUTO_CONFIRM_MAX_TOTAL = int(os.getenv("AUTO_CONFIRM_MAX_TOTAL", "60000"))
 AUTO_CONFIRM_MAX_LEAD_DAYS = int(os.getenv("AUTO_CONFIRM_MAX_LEAD_DAYS", "180"))
+# Потолок процентной скидки: акция «−80%» всё равно даёт не больше половины стоимости проживания.
+PROMO_MAX_PERCENT = int(os.getenv("PROMO_MAX_PERCENT", "50"))
 
 
 def rubles(amount: int) -> str:
@@ -62,12 +65,65 @@ class Price:
     total: int
 
 
-def calculate_price(price_per_night: int, check_in: date, check_out: date) -> Price:
-    """Единственный расчёт цены: им пользуются и котировка, и создание брони. Скидок пока нет."""
+def promo_discount(promo: Promo, subtotal: int) -> int:
+    """Скидка акции в рублях. Процентная — не больше PROMO_MAX_PERCENT от стоимости проживания,
+    фиксированная — не больше самой стоимости, поэтому итог никогда не уходит в минус."""
+    if promo.kind == PromoKind.PERCENT:
+        return min(subtotal * promo.value // 100, subtotal * PROMO_MAX_PERCENT // 100)
+    return min(promo.value, subtotal)
+
+
+def calculate_price(price_per_night: int, check_in: date, check_out: date, promo: Promo | None = None) -> Price:
+    """Единственный расчёт цены: им пользуются и котировка, и создание брони.
+
+    Применимость акции здесь не проверяется — это делает promo_refusal; сюда приходит уже проверенная акция.
+    """
     nights = (check_out - check_in).days
     subtotal = nights * price_per_night
-    discount = 0
+    discount = promo_discount(promo, subtotal) if promo else 0
     return Price(nights, price_per_night, subtotal, discount, subtotal - discount)
+
+
+def promo_refusal(
+    promo: Promo, *, user_id: int | None, room_id: int, nights: int, today: date, in_use: bool
+) -> str | None:
+    """Почему промокод нельзя применить, или None, если можно. Тексты показываются гостю как есть.
+
+    Порядок: сначала владелец — чужой персональный код не должен раскрывать условия акции.
+    in_use — код уже занят бронью в статусе pending или confirmed (код одноразовый).
+    """
+    if promo.user_id is not None and promo.user_id != user_id:
+        return "Этот промокод недоступен для вашего аккаунта"
+    if not promo.is_active:
+        return "Акция больше не действует"
+    if today < promo.valid_from:
+        return f"Акция начнётся {promo.valid_from:%d.%m.%Y}"
+    if today > promo.valid_to:
+        return f"Срок действия промокода истёк {promo.valid_to:%d.%m.%Y}"
+    if nights < promo.min_nights:
+        return f"Минимум ночей для этого промокода: {promo.min_nights}"
+    if promo.room_id is not None and promo.room_id != room_id:
+        return "Промокод действует только для другого номера"
+    if in_use:
+        return "Этот промокод уже использован в другой брони"
+    return None
+
+
+class Segment(StrEnum):
+    """Сегмент клиента в CRM: считается по числу завершённых проживаний и нигде не хранится."""
+
+    NEW = "new"
+    GUEST = "guest"
+    REGULAR = "regular"
+
+
+REGULAR_MIN_STAYS = 2
+
+
+def client_segment(completed_stays: int) -> Segment:
+    if completed_stays == 0:
+        return Segment.NEW
+    return Segment.REGULAR if completed_stays >= REGULAR_MIN_STAYS else Segment.GUEST
 
 
 @dataclass(frozen=True)

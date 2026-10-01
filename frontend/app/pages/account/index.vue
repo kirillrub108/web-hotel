@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import type { Booking } from '~/types'
+import type { Booking, Promo } from '~/types'
 
 const { user } = useCurrentUser()
 const { data: bookings } = await useFetch<Booking[]>('/api/account/bookings')
+const { data: offers } = await useFetch<Promo[]>('/api/account/promos', { default: () => [] })
 
 // Ближайшая бронь — предстоящая или текущая с самой ранней датой заезда.
 const nearest = computed(() =>
@@ -71,6 +72,26 @@ useHead({ title: 'Личный кабинет — Kivana', meta: [{ name: 'robot
       </div>
 
       <div class="card overview">
+        <h2>Персональные предложения</h2>
+        <ul v-if="offers.length" class="offers">
+          <li v-for="offer in offers" :key="offer.id" class="offer">
+            <p class="offer__head">
+              <strong>{{ offer.title }}</strong>
+              <span class="tag">{{ promoValueLabel(offer) }}</span>
+              <span class="tag">{{ offer.is_personal ? 'Только для вас' : 'Для всех гостей' }}</span>
+            </p>
+            <p v-if="offer.description" class="offer__text">{{ offer.description }}</p>
+            <p class="offer__code">Промокод: <code>{{ offer.code }}</code></p>
+            <ul class="offer__conditions">
+              <li v-for="condition in promoConditions(offer)" :key="condition">{{ condition }}</li>
+            </ul>
+          </li>
+        </ul>
+        <p v-else class="muted">Сейчас предложений нет. Они появятся здесь, когда отель выдаст вам скидку.</p>
+        <NuxtLink v-if="offers.length" to="/rooms">Выбрать номер</NuxtLink>
+      </div>
+
+      <div class="card overview">
         <p><span class="overview__label">Email</span>{{ user.email }}</p>
         <p><span class="overview__label">Телефон</span>{{ user.phone || 'не указан' }}</p>
         <NuxtLink to="/account/profile">Изменить профиль или пароль</NuxtLink>
@@ -98,6 +119,55 @@ useHead({ title: 'Личный кабинет — Kivana', meta: [{ name: 'robot
 .overview p,
 .overview h2 {
   margin: 0;
+}
+
+.offers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.offer {
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface-warm);
+}
+
+.offer p {
+  margin: 0 0 6px;
+}
+
+.offer__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.offer__text {
+  color: var(--muted);
+}
+
+.offer__code code {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--surface);
+  font-weight: 700;
+}
+
+.offer__conditions {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.muted {
+  color: var(--muted);
 }
 
 .overview__label {

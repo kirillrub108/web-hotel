@@ -476,6 +476,7 @@ def test_quote_counts_price_and_availability(client: TestClient, make_booking: M
         "subtotal": 13500,
         "discount": 0,
         "total": 13500,
+        "promo_title": None,
     }
 
     make_booking(day(11), day(12), status=BookingStatus.CONFIRMED)

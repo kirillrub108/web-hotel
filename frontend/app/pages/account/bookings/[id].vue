@@ -63,7 +63,10 @@ useHead({ title: 'Бронь — Kivana', meta: [{ name: 'robots', content: 'noi
             <dt>Стоимость</dt>
             <dd>
               {{ nightsLabel(detail.booking.nights) }} × {{ formatRubles(detail.booking.price_per_night) }}
-              <template v-if="detail.booking.discount">, скидка {{ formatRubles(detail.booking.discount) }}</template>
+              <template v-if="detail.booking.discount">
+                , скидка {{ formatRubles(detail.booking.discount) }}
+                <template v-if="detail.booking.promo">(промокод {{ detail.booking.promo.code }})</template>
+              </template>
               = <strong>{{ formatRubles(detail.booking.total_price) }}</strong>
             </dd>
             <template v-if="detail.booking.comment">

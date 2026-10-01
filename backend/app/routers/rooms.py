@@ -8,8 +8,10 @@ from sqlalchemy.orm import Session
 from app.booking_lifecycle import dates_taken
 from app.booking_rules import calculate_price
 from app.database import get_db
-from app.models import Room
+from app.models import Room, User
+from app.promos import find_promo
 from app.schemas import QuoteOut, RoomOut, StayIn
+from app.sessions import get_current_user
 
 router = APIRouter(prefix="/api/rooms", tags=["rooms"])
 
@@ -41,10 +43,20 @@ def get_room(slug: str, db: Session = Depends(get_db)) -> Room:
 
 
 @router.get("/{slug}/quote", response_model=QuoteOut)
-def quote_room(slug: str, stay: Annotated[StayIn, Query()], db: Session = Depends(get_db)) -> dict[str, object]:
+def quote_room(
+    slug: str,
+    stay: Annotated[StayIn, Query()],
+    user: User | None = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
     """Котировка для формы брони: свободен ли номер и сколько будет стоить. Цену считает та же функция,
-    что и при создании брони, поэтому сумма в форме совпадёт с суммой в брони."""
+    что и при создании брони, поэтому сумма в форме совпадёт с суммой в брони. Неприменимый промокод — 400."""
     room = room_by_slug(db, slug)
+    promo = (
+        find_promo(db, stay.promo_code, user=user, room=room, check_in=stay.check_in, check_out=stay.check_out)
+        if stay.promo_code
+        else None
+    )
     unavailable_reason = None
     if not room.is_available:
         unavailable_reason = "Этот номер сейчас недоступен для брони"
@@ -52,5 +64,10 @@ def quote_room(slug: str, stay: Annotated[StayIn, Query()], db: Session = Depend
         unavailable_reason = f"Максимальное число гостей в номере — {room.capacity}"
     elif dates_taken(db, room.id, stay.check_in, stay.check_out):
         unavailable_reason = "Номер уже занят на выбранные даты"
-    price = calculate_price(room.price_per_night, stay.check_in, stay.check_out)
-    return {"available": unavailable_reason is None, "unavailable_reason": unavailable_reason, **asdict(price)}
+    price = calculate_price(room.price_per_night, stay.check_in, stay.check_out, promo)
+    return {
+        "available": unavailable_reason is None,
+        "unavailable_reason": unavailable_reason,
+        "promo_title": promo.title if promo else None,
+        **asdict(price),
+    }

@@ -77,12 +77,15 @@ class Booking(Base):
     price_per_night: Mapped[int]
     discount: Mapped[int] = mapped_column(default=0)
     total_price: Mapped[int]
+    # Применённая акция: скидка выше сохранена снимком, а промокод считается занятым, пока бронь pending или confirmed.
+    promo_id: Mapped[int | None] = mapped_column(ForeignKey("promos.id", ondelete="RESTRICT"), index=True, default=None)
     cancelled_by: Mapped[str | None] = mapped_column(String(20), default=None)
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     room: Mapped[Room] = relationship()
     user: Mapped["User"] = relationship()
+    promo: Mapped["Promo | None"] = relationship()
     # По id, а не по created_at: события одной транзакции получают одинаковое время now().
     events: Mapped[list["BookingEvent"]] = relationship(back_populates="booking", order_by="BookingEvent.id")
 
@@ -128,11 +131,42 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(20), default=UserRole.GUEST)
     # Отметка администратора о клиенте; по ней движок правил решает судьбу новых броней.
     crm_status: Mapped[str] = mapped_column(String(20), default=CrmStatus.REGULAR)
+    # Заметка администратора о клиенте: гость её не видит.
+    crm_note: Mapped[str | None] = mapped_column(Text, default=None)
     is_active: Mapped[bool] = mapped_column(default=True)
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     consent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+
+
+class PromoKind(StrEnum):
+    PERCENT = "percent"
+    FIXED = "fixed"
+
+
+class Promo(Base):
+    """Акция с промокодом. user_id пуст — общая акция, заполнен — персональная."""
+
+    __tablename__ = "promos"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(32), unique=True)
+    title: Mapped[str] = mapped_column(String(120))
+    description: Mapped[str] = mapped_column(Text, default="")
+    kind: Mapped[str] = mapped_column(String(10))
+    # Для percent — проценты, для fixed — рубли.
+    value: Mapped[int]
+    valid_from: Mapped[date] = mapped_column(Date)
+    valid_to: Mapped[date] = mapped_column(Date)
+    min_nights: Mapped[int] = mapped_column(default=1)
+    room_id: Mapped[int | None] = mapped_column(ForeignKey("rooms.id"), index=True, default=None)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True, default=None)
+    is_active: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    room: Mapped[Room | None] = relationship()
+    user: Mapped[User | None] = relationship()
 
 
 class UserSession(Base):

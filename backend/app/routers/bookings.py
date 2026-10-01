@@ -11,6 +11,7 @@ from app.database import get_db
 from app.mail import send_mail
 from app.mail_templates import admin_review_mail, booking_review_mail
 from app.models import Actor, Booking, BookingStatus, Room, User
+from app.promos import find_promo
 from app.schemas import BookingCreate, GuestBookingOut
 from app.security import booking_limiters
 from app.sessions import require_verified_user
@@ -62,9 +63,22 @@ def create_booking(
             "Дождитесь решения по ним или отмените лишние",
         )
 
+    # Промокод проверяется после просрочки: отклонённая по сроку заявка уже освободила свой код.
+    promo = None
+    if payload.promo_code:
+        promo = find_promo(
+            db,
+            payload.promo_code,
+            user=user,
+            room=room,
+            check_in=payload.check_in,
+            check_out=payload.check_out,
+            lock=True,
+        )
+
     # Факты для движка правил собираются здесь: сам decide() в базу не ходит.
     today = hotel_time.hotel_today()
-    price = calculate_price(room.price_per_night, payload.check_in, payload.check_out)
+    price = calculate_price(room.price_per_night, payload.check_in, payload.check_out, promo)
     has_completed_stay = db.scalar(
         select(
             exists().where(
@@ -101,6 +115,7 @@ def create_booking(
         price_per_night=price.price_per_night,
         discount=price.discount,
         total_price=price.total,
+        promo=promo,
     )
     db.add(booking)
     # Заявка рождается в pending: событие создания пишется в журнал без письма.
