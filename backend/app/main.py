@@ -2,7 +2,7 @@ import logging
 
 from fastapi import FastAPI
 
-from app.routers import account, admin, admin_crm, auth, bookings, hotel, rooms
+from app.routers import account, admin, admin_crm, admin_services, auth, bookings, hotel, rooms, services
 
 # Логгеры приложения (например, console-почта) пишут в тот же поток, что и uvicorn: его видно в docker compose logs.
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(name)s: %(message)s")
@@ -20,6 +20,8 @@ app.include_router(auth.router)
 app.include_router(account.router)
 app.include_router(admin.router)
 app.include_router(admin_crm.router)
+app.include_router(services.router)
+app.include_router(admin_services.router)
 
 
 @app.get("/api/health", tags=["health"])

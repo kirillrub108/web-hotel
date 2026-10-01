@@ -169,6 +169,103 @@ class Promo(Base):
     user: Mapped[User | None] = relationship()
 
 
+class ServiceCategory(StrEnum):
+    FOOD = "food"
+    HOUSEKEEPING = "housekeeping"
+    TRANSFER = "transfer"
+    WELLNESS = "wellness"
+    OTHER = "other"
+
+
+class ServiceUnit(StrEnum):
+    """За что берётся цена: за штуку (количество можно менять) или за всё проживание (заказ один)."""
+
+    PER_ITEM = "per_item"
+    PER_STAY = "per_stay"
+
+
+class Service(Base):
+    """Услуга из каталога гостиницы. Деактивированная скрывается из каталога, но остаётся в уже сделанных заказах."""
+
+    __tablename__ = "services"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    slug: Mapped[str] = mapped_column(String(60), unique=True)
+    title: Mapped[str] = mapped_column(String(120))
+    description: Mapped[str] = mapped_column(Text, default="")
+    category: Mapped[str] = mapped_column(String(20))
+    price: Mapped[int]
+    unit: Mapped[str] = mapped_column(String(10))
+    is_active: Mapped[bool] = mapped_column(default=True)
+    sort_order: Mapped[int] = mapped_column(default=100)
+
+
+class OrderStatus(StrEnum):
+    NEW = "new"
+    ACCEPTED = "accepted"
+    DONE = "done"
+    CANCELLED = "cancelled"
+
+
+class ServiceOrder(Base):
+    """Заказ услуги или еды в номер к подтверждённой брони. Статус меняет только room_service.change_order_status."""
+
+    __tablename__ = "service_orders"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    booking_id: Mapped[int] = mapped_column(ForeignKey("bookings.id", ondelete="CASCADE"), index=True)
+    service_id: Mapped[int] = mapped_column(ForeignKey("services.id", ondelete="RESTRICT"), index=True)
+    quantity: Mapped[int]
+    # Снимок цены на момент заказа.
+    unit_price: Mapped[int]
+    total: Mapped[int]
+    scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    comment: Mapped[str | None] = mapped_column(Text, default=None)
+    status: Mapped[str] = mapped_column(String(10), default=OrderStatus.NEW)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    booking: Mapped[Booking] = relationship()
+    service: Mapped[Service] = relationship()
+
+
+class HousekeepingKind(StrEnum):
+    DAILY = "daily"
+    CHECKOUT = "checkout"
+
+
+class HousekeepingSlot(StrEnum):
+    """Время ежедневной уборки: утро 09–12, день 12–15, вечер 15–18 или «не беспокоить»."""
+
+    MORNING = "morning"
+    DAY = "day"
+    EVENING = "evening"
+    DND = "dnd"
+
+
+class HousekeepingStatus(StrEnum):
+    PLANNED = "planned"
+    DONE = "done"
+    SKIPPED = "skipped"
+
+
+class HousekeepingTask(Base):
+    """Уборка номера на дату. Создаются при подтверждении брони (housekeeping.create_stay_tasks)."""
+
+    __tablename__ = "housekeeping_tasks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    booking_id: Mapped[int] = mapped_column(ForeignKey("bookings.id", ondelete="CASCADE"), index=True)
+    room_id: Mapped[int] = mapped_column(ForeignKey("rooms.id"), index=True)
+    date: Mapped[date] = mapped_column(Date, index=True)
+    kind: Mapped[str] = mapped_column(String(10))
+    slot: Mapped[str] = mapped_column(String(10), default=HousekeepingSlot.MORNING)
+    status: Mapped[str] = mapped_column(String(10), default=HousekeepingStatus.PLANNED)
+    done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+
+    booking: Mapped[Booking] = relationship()
+    room: Mapped[Room] = relationship()
+
+
 class UserSession(Base):
     __tablename__ = "sessions"
 

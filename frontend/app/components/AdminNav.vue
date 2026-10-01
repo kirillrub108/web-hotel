@@ -5,6 +5,9 @@ const LINKS = [
   { to: '/admin', label: 'Заявки' },
   { to: '/admin/clients', label: 'Клиенты' },
   { to: '/admin/promos', label: 'Акции' },
+  { to: '/admin/services', label: 'Услуги' },
+  { to: '/admin/service-orders', label: 'Заказы услуг' },
+  { to: '/admin/housekeeping', label: 'Уборка' },
 ]
 
 // Заявки живут на /admin, остальные разделы — под своими префиксами; карточка клиента подсвечивает «Клиенты».

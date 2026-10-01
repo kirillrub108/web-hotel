@@ -1,6 +1,7 @@
 """Жизненный цикл брони: таблица переходов, функция перехода, ленивая просрочка, дедлайн отмены.
 
 Статус брони меняет только change_status: она проверяет переход, пишет событие в журнал и ставит письмо гостю.
+Здесь же подтверждение создаёт уборки на проживание, а отмена подтверждённой брони снимает уборки и заказы услуг.
 """
 import os
 from collections.abc import Callable
@@ -13,9 +14,11 @@ from sqlalchemy.orm import Session
 
 from app import hotel_time
 from app.booking_rules import Reason
+from app.housekeeping import create_stay_tasks, delete_planned_tasks
 from app.mail import Mail, send_mail
 from app.mail_templates import booking_cancelled_mail, booking_confirmed_mail, booking_declined_mail
 from app.models import Actor, Booking, BookingEvent, BookingStatus, Hotel
+from app.room_service import cancel_open_orders
 
 FREE_CANCEL_HOURS = int(os.getenv("FREE_CANCEL_HOURS", "48"))
 
@@ -155,6 +158,7 @@ def change_status(
         ) from None
 
     if to_status == BookingStatus.CONFIRMED:
+        create_stay_tasks(db, booking)
         # Пересекающиеся заявки на рассмотрении больше не исполнимы — они отклоняются.
         # SKIP LOCKED пропускает заявки, которые прямо сейчас меняет параллельный запрос: взаимных блокировок нет.
         others = overlapping(booking.room_id, booking.check_in, booking.check_out, BookingStatus.PENDING)
@@ -163,6 +167,10 @@ def change_status(
             change_status(
                 db, other, BookingStatus.DECLINED, Actor.SYSTEM, background, reason_codes=[Reason.DATES_TAKEN]
             )
+
+    if from_status == BookingStatus.CONFIRMED and to_status == BookingStatus.CANCELLED:
+        delete_planned_tasks(db, booking)
+        cancel_open_orders(db, booking)
 
     if to_status in STATUS_MAILS:
         background.add_task(send_mail, STATUS_MAILS[to_status](booking))

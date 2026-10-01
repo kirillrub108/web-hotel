@@ -23,6 +23,7 @@ const { user } = useCurrentUser()
       <nav class="header__nav" :class="{ 'header__nav--open': isMenuOpen }">
         <NuxtLink to="/" @click="isMenuOpen = false">Главная</NuxtLink>
         <NuxtLink to="/rooms" @click="isMenuOpen = false">Номера</NuxtLink>
+        <NuxtLink to="/services" @click="isMenuOpen = false">Услуги</NuxtLink>
         <NuxtLink to="/contacts" @click="isMenuOpen = false">Контакты</NuxtLink>
         <NuxtLink v-if="user?.role === 'admin'" to="/admin" @click="isMenuOpen = false">Админка</NuxtLink>
         <NuxtLink v-if="user" to="/account" @click="isMenuOpen = false">Кабинет</NuxtLink>
