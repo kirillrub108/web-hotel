@@ -1,0 +1,28 @@
+@startuml
+!include _style.iuml
+node "Устройство пользователя" as client {
+  artifact "Web-браузер" as browser
+}
+node "Сервер (Docker Compose)" as host {
+  node "Контейнер frontend\n(Node.js 24)" as fe {
+    component "Nuxt 4: SSR-страницы\nна Vue 3" as nuxt
+    component "Nitro: прокси /api/**" as proxy
+  }
+  node "Контейнер backend\n(Python 3.12)" as be {
+    component "Uvicorn + FastAPI:\nREST API /api" as api
+    component "Alembic: миграции" as alembic
+    component "seed.py: справочники\nи администратор" as seed
+  }
+  node "Контейнер db" as dbn {
+    database "PostgreSQL 16" as pg
+  }
+}
+cloud "Resend\n(почтовый API)" as resend
+browser --> nuxt : HTTP :3000
+nuxt --> proxy
+proxy --> api : HTTP :8000
+api --> pg : TCP :5432\n(psycopg 3)
+alembic --> pg
+seed --> pg
+api --> resend : HTTPS
+@enduml

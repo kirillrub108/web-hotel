@@ -1,0 +1,37 @@
+// Модель организационной структуры гостиницы в нотации ARIS Org chart:
+// организационные единицы — овалы, должности — прямоугольники.
+digraph org {
+  graph [rankdir=TB, splines=ortho, nodesep=0.25, ranksep=0.45, dpi=150, fontname="Arial", bgcolor="white"];
+  node  [fontname="Arial", fontsize=12, penwidth=1.2, color="#333333", style=filled];
+  edge  [arrowhead=none, color="#333333", penwidth=1.1];
+
+  hotel    [label="Гостиница Kivana", shape=ellipse, fillcolor="#FFF2CC", width=2.6, height=0.7, peripheries=2];
+  director [label="Директор", shape=box, fillcolor="#FFFFFF", width=1.8];
+
+  front [label="Служба приёма\nи размещения", shape=ellipse, fillcolor="#FFF2CC"];
+  house [label="Хозяйственная\nслужба", shape=ellipse, fillcolor="#FFF2CC"];
+  food  [label="Служба\nпитания", shape=ellipse, fillcolor="#FFF2CC"];
+  tech  [label="Техническая\nслужба", shape=ellipse, fillcolor="#FFF2CC"];
+  acc   [label="Бухгалтерия", shape=ellipse, fillcolor="#FFF2CC"];
+
+  front_head [label="Старший\nадминистратор", shape=box, fillcolor="#FFFFFF"];
+  front_adm  [label="Администратор\nстойки приёма", shape=box, fillcolor="#FFFFFF"];
+  driver     [label="Водитель", shape=box, fillcolor="#FFFFFF"];
+  house_head [label="Кастелянша", shape=box, fillcolor="#FFFFFF"];
+  maid       [label="Горничная", shape=box, fillcolor="#FFFFFF"];
+  laundry    [label="Оператор\nпрачечной", shape=box, fillcolor="#FFFFFF"];
+  chef       [label="Шеф-повар", shape=box, fillcolor="#FFFFFF"];
+  cook       [label="Повар", shape=box, fillcolor="#FFFFFF"];
+  waiter     [label="Официант", shape=box, fillcolor="#FFFFFF"];
+  engineer   [label="Инженер", shape=box, fillcolor="#FFFFFF"];
+  masseur    [label="Массажист", shape=box, fillcolor="#FFFFFF"];
+  accountant [label="Главный\nбухгалтер", shape=box, fillcolor="#FFFFFF"];
+
+  hotel -> director;
+  director -> {front house food tech acc};
+  front -> front_head -> {front_adm driver};
+  house -> house_head -> {maid laundry};
+  food -> chef -> {cook waiter};
+  tech -> {engineer masseur};
+  acc -> accountant;
+}

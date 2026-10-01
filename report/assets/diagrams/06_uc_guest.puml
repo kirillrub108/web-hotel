@@ -1,0 +1,33 @@
+@startuml
+!include _style.iuml
+left to right direction
+actor "Гость\n(клиент)" as G
+rectangle "Web-приложение гостиницы" {
+  usecase "Бронирование\nномера" as UC1
+  usecase "Расчёт стоимости\nпроживания" as UC1a
+  usecase "Применение\nпромокода" as UC1b
+  usecase "Просмотр своих\nброней" as UC2
+  usecase "Просмотр персональных\nакций" as UC8
+  usecase "Просмотр брони\nи истории статусов" as UC3
+  usecase "Отмена брони" as UC4
+  usecase "Заказ услуги\nк брони" as UC5
+  usecase "Отмена заказа\nуслуги" as UC6
+  usecase "Выбор времени\nуборки" as UC7
+  usecase "Редактирование\nпрофиля" as UC9
+  usecase "Смена пароля" as UC10
+  usecase "Выход из системы" as UC11
+}
+G -- UC1
+G -- UC2
+G -- UC3
+G -- UC8
+G -- UC9
+G -- UC11
+UC1 ..> UC1a : <<include>>
+UC1 <.. UC1b : <<extend>>
+UC3 <.. UC4 : <<extend>>
+UC3 <.. UC5 : <<extend>>
+UC3 <.. UC6 : <<extend>>
+UC3 <.. UC7 : <<extend>>
+UC9 <.. UC10 : <<extend>>
+@enduml
