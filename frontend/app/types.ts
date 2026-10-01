@@ -23,21 +23,75 @@ export interface Room {
   is_available: boolean
 }
 
-export type BookingStatus = 'new' | 'confirmed' | 'cancelled'
+export type BookingStatus = 'pending' | 'confirmed' | 'declined' | 'cancelled'
 
-export interface AdminBooking {
+// Статус для показа: «Проживание» и «Завершена» backend вычисляет из подтверждённой брони.
+export type DisplayStatus = BookingStatus | 'in_stay' | 'completed'
+
+export type Actor = 'system' | 'admin' | 'guest'
+
+export type CrmStatus = 'regular' | 'vip' | 'blocked'
+
+export type AdminAction = 'confirm' | 'decline' | 'cancel'
+
+export interface Quote {
+  available: boolean
+  unavailable_reason: string | null
+  nights: number
+  price_per_night: number
+  subtotal: number
+  discount: number
+  total: number
+}
+
+export interface Booking {
   id: number
-  room_id: number
+  room: { slug: string, name: string }
   guest_name: string
   phone: string
-  email: string
   check_in: string
   check_out: string
   guests: number
   comment: string | null
   status: BookingStatus
+  display_status: DisplayStatus
+  nights: number
+  price_per_night: number
+  discount: number
+  total_price: number
+  // Причины последнего решения простыми словами.
+  reasons: string[]
   created_at: string
-  room: { slug: string, name: string }
+  cancelled_at: string | null
+}
+
+export interface BookingEvent {
+  id: number
+  // null — событие создания заявки.
+  from_status: BookingStatus | null
+  to_status: BookingStatus
+  actor: Actor
+  reasons: string[]
+  created_at: string
+}
+
+export interface BookingDetail {
+  booking: Booking
+  events: BookingEvent[]
+  cancel_deadline: string | null
+  can_cancel: boolean
+}
+
+export interface AdminBooking extends Booking {
+  reason_codes: string[]
+  user: { id: number, email: string, full_name: string, crm_status: CrmStatus }
+  decided_by: Actor | null
+  cancelled_by: Actor | null
+}
+
+export interface AdminBookingDetail {
+  booking: AdminBooking
+  events: BookingEvent[]
 }
 
 export interface AdminBookingPage {

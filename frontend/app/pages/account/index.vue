@@ -1,5 +1,15 @@
 <script setup lang="ts">
+import type { Booking } from '~/types'
+
 const { user } = useCurrentUser()
+const { data: bookings } = await useFetch<Booking[]>('/api/account/bookings')
+
+// Ближайшая бронь — предстоящая или текущая с самой ранней датой заезда.
+const nearest = computed(() =>
+  (bookings.value ?? [])
+    .filter(item => ['pending', 'confirmed', 'in_stay'].includes(item.display_status))
+    .sort((a, b) => a.check_in.localeCompare(b.check_in))[0],
+)
 const resendStatus = ref<'idle' | 'sending' | 'sent'>('idle')
 const resendError = ref('')
 
@@ -43,6 +53,24 @@ useHead({ title: 'Личный кабинет — Kivana', meta: [{ name: 'robot
       </div>
 
       <div class="card overview">
+        <h2>Ближайшая бронь</h2>
+        <template v-if="nearest">
+          <p>
+            <StatusBadge :status="nearest.display_status" />
+          </p>
+          <p>
+            <strong>{{ nearest.room.name }}</strong>,
+            {{ formatDate(nearest.check_in) }} — {{ formatDate(nearest.check_out) }}, {{ nightsLabel(nearest.nights) }}
+          </p>
+          <NuxtLink :to="`/account/bookings/${nearest.id}`">Подробнее о брони</NuxtLink>
+        </template>
+        <template v-else>
+          <p>Предстоящих броней нет.</p>
+          <NuxtLink to="/rooms">Выбрать номер</NuxtLink>
+        </template>
+      </div>
+
+      <div class="card overview">
         <p><span class="overview__label">Email</span>{{ user.email }}</p>
         <p><span class="overview__label">Телефон</span>{{ user.phone || 'не указан' }}</p>
         <NuxtLink to="/account/profile">Изменить профиль или пароль</NuxtLink>
@@ -67,7 +95,8 @@ useHead({ title: 'Личный кабинет — Kivana', meta: [{ name: 'robot
 }
 
 .banner p,
-.overview p {
+.overview p,
+.overview h2 {
   margin: 0;
 }
 

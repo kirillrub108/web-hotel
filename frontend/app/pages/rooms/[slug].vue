@@ -3,6 +3,7 @@ import type { Room } from '~/types'
 
 const route = useRoute()
 const slug = route.params.slug as string
+const { user } = useCurrentUser()
 
 const { data: room, error } = await useFetch<Room>('/api/rooms/' + slug)
 
@@ -46,12 +47,31 @@ useHead({ title: room.value.name + ' — Kivana' })
         </div>
 
         <aside class="aside">
-          <BookingForm v-if="room.is_available" :room="room" />
-          <div v-else class="card unavailable">
+          <div v-if="!room.is_available" class="card gate">
             <h2>Номер недоступен</h2>
             <p>Мы подберём похожий вариант на ваши даты.</p>
             <NuxtLink class="button" to="/rooms">Смотреть другие номера</NuxtLink>
           </div>
+
+          <div v-else-if="!user" class="card gate">
+            <h2>Бронирование</h2>
+            <p>Бронь и её статус будут в личном кабинете, а письма о решении придут на вашу почту.</p>
+            <NuxtLink class="button" :to="{ path: '/login', query: { next: route.fullPath } }">
+              Войдите, чтобы забронировать
+            </NuxtLink>
+            <p class="gate__note">Нет аккаунта? <NuxtLink to="/register">Зарегистрируйтесь</NuxtLink></p>
+          </div>
+
+          <div v-else-if="!user.email_verified_at" class="card gate">
+            <h2>Подтвердите email</h2>
+            <p>
+              Бронировать можно после подтверждения почты. Ссылку мы отправили на {{ user.email }};
+              отправить письмо ещё раз можно в личном кабинете.
+            </p>
+            <NuxtLink class="button button--ghost" to="/account">В личный кабинет</NuxtLink>
+          </div>
+
+          <BookingForm v-else :room="room" />
         </aside>
       </div>
     </div>
@@ -98,8 +118,14 @@ useHead({ title: room.value.name + ' — Kivana' })
   top: 90px;
 }
 
-.unavailable {
+.gate {
   padding: var(--space-3);
+}
+
+.gate__note {
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
 }
 
 @media (max-width: 900px) {
