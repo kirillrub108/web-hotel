@@ -1,0 +1,14 @@
+{
+  "name": "kivana-demo-video",
+  "private": true,
+  "type": "module",
+  "description": "Автоматическая запись демонстрационного видео Kivana: Playwright + ffmpeg",
+  "scripts": {
+    "demo": "bash ./run.sh",
+    "record": "node scripts/record.mjs",
+    "build": "node scripts/build.mjs"
+  },
+  "dependencies": {
+    "playwright": "1.56.1"
+  }
+}
