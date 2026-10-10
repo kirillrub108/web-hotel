@@ -3,6 +3,7 @@
 Нужны Microsoft Word, pywin32 и pymupdf. Исходный .docx не сохраняется (поля обновляются только для PDF).
     python report/build/render_pdf.py [страницы через запятую]
 """
+import shutil
 import sys
 from pathlib import Path
 
@@ -17,11 +18,14 @@ OUT = HERE / "render"
 def export_pdf() -> Path:
     OUT.mkdir(exist_ok=True)
     pdf = OUT / "Курсовая_работа.pdf"
+    # Word открывает копию: если сам отчёт открыт у пользователя, Open на занятом файле зависает.
+    copy = OUT / "_render_copy.docx"
+    shutil.copyfile(DOCX, copy)
     word = win32com.client.DispatchEx("Word.Application")
     word.Visible = False
     word.DisplayAlerts = 0
     try:
-        doc = word.Documents.Open(str(DOCX), ReadOnly=True, AddToRecentFiles=False)
+        doc = word.Documents.Open(str(copy), ReadOnly=True, AddToRecentFiles=False)
         doc.Fields.Update()
         for toc in doc.TablesOfContents:
             toc.Update()

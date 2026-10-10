@@ -2,6 +2,7 @@
 
     python report/build/capture.py              # --site и --analogs
     python report/build/capture.py --up --site  # сначала docker compose up -d --build и ожидание
+    python report/build/capture.py --admin-flow # только кадры 19–22 «Заявки» на новой заявке Анны
 
 PNG -> report/assets/screens/, видимый текст каждой страницы -> report/build/screens_text/ (для описаний).
 Каждый кадр проверяется до сохранения: страница загрузилась, нужный текст виден, это не страница ошибки Nuxt,
@@ -79,8 +80,10 @@ def scroll_to(page: Page, selector: str) -> None:
 def save(page: Page, name: str, full: bool) -> None:
     path = OUT / f"{name}.png"
     page.mouse.move(0, 0)  # без hover-подсветки кнопки, по которой только что кликнули
-    # Широкие таблицы админки прокручиваются по горизонтали; после клика по кнопке справа — вернуть в начало.
-    page.evaluate("document.querySelectorAll('.table-wrap').forEach(e => { e.scrollLeft = 0 })")
+    # Таблица с горизонтальной прокруткой на снимке обрезана — это дефект вёрстки, а не кадр для отчёта.
+    overflow = page.evaluate("[...document.querySelectorAll('.table-wrap')].some(e => e.scrollWidth > e.clientWidth + 1)")
+    if overflow:
+        raise ShotError(f"{name}: таблица не помещается по ширине ({page.url})")
     if full:
         page.evaluate("window.scrollTo({top: 0, behavior: 'instant'})")
     page.screenshot(path=path, full_page=full)
@@ -142,22 +145,66 @@ def open_tab(page: Page, name: str) -> None:
     page.wait_for_load_state("networkidle")
 
 
+def new_page(browser: Browser) -> Page:
+    context = browser.new_context(viewport=VIEWPORT, locale="ru-RU", timezone_id="Europe/Moscow")
+    context.set_default_timeout(60_000)  # dev-сервер Nuxt компилирует страницу при первом открытии
+    return context.new_page()
+
+
+def capture_admin_flow(m: Page, check_in, check_out, reason: str) -> None:
+    """Кадры 19–22: список заявок → история заявки Анны на разборе → окно подтверждения → подтверждена."""
+    go(m, "/admin")
+    open_tab(m, "Все")
+    shot(m, "19_admin_bookings", "Статус и причины", full=True, rows="table.data-table tbody tr")
+
+    # Строка заявки Анны: по датам и имени (текст ячейки «№id» сливается с датой создания).
+    dates = f"{check_in:%d.%m.%Y} — {check_out:%d.%m.%Y}"
+    row = m.locator("table.data-table tbody tr", has_text=dates).filter(has_text="Анна Лебедева")
+    open_tab(m, "На разборе")
+    row.get_by_role("button", name="История").click()
+    expect(m.locator("tr.history")).to_be_visible()
+    shot(m, "20_admin_booking_detail", "Скрыть историю", full=True)
+
+    row.get_by_role("button", name="Подтвердить").click()
+    m.fill("#admin-reason", reason)
+    shot(m, "21_admin_status_dialog", "Подтвердить бронь")
+    m.locator("dialog button[type=submit]").click()
+    expect(m.locator("dialog")).to_have_count(0)
+    open_tab(m, "Подтверждённые")
+    expect(row).to_contain_text("Подтверждена")
+    shot(m, "22_admin_status_changed", dates, full=True)
+
+
+def capture_admin_only(browser: Browser) -> None:
+    """Только кадры 19–22: новая заявка Анны создаётся через API, остальные снимки не трогаются."""
+    c = creds()
+    m = new_page(browser)
+    login(m, c["ADMIN_EMAIL"], c["ADMIN_PASSWORD"], "/admin")
+    a = new_page(browser)
+    login(a, "anna@demo.kivana.ru", c["DEMO_PASSWORD"], "/account")
+    room = a.request.get(f"{SITE}/api/rooms/lyuks").json()
+    check_in, check_out = free_window("lyuks", 3, 2, 21)
+    r = a.request.post(f"{SITE}/api/bookings", data={
+        "room_id": room["id"], "guest_name": "Анна Лебедева", "phone": "+7 900 111-22-33",
+        "check_in": check_in.isoformat(), "check_out": check_out.isoformat(), "guests": 2,
+        "comment": "Отмечаем годовщину свадьбы. Если возможно, дайте номер с видом на набережную.",
+    })
+    if not r.ok or r.json()["status"] != "pending":
+        raise ShotError(f"Заявка Анны не попала на разбор: {r.status} {r.text()[:200]}")
+    capture_admin_flow(m, check_in, check_out, "Номер с видом на набережную закреплён за вами. Ждём вас!")
+
+
 def capture_site(browser: Browser) -> None:
     c = creds()
 
-    def new_page() -> Page:
-        context = browser.new_context(viewport=VIEWPORT, locale="ru-RU", timezone_id="Europe/Moscow")
-        context.set_default_timeout(60_000)  # dev-сервер Nuxt компилирует страницу при первом открытии
-        return context.new_page()
-
     # Администратор входит первым: через его API проверяем, зарегистрирована ли уже Елена (повторный запуск).
-    m = new_page()
+    m = new_page(browser)
     login(m, c["ADMIN_EMAIL"], c["ADMIN_PASSWORD"], "/admin")
     full_name, new_email = NEW_GUEST
     found = m.request.get(f"{SITE}/api/admin/clients", params={"search": new_email}).json()["total"]
 
     # ---------- Гость ----------
-    g = new_page()
+    g = new_page(browser)
     go(g, "/")
     shot(g, "01_home_guest", "Популярные номера", rows=".grid .room")
     go(g, "/login")
@@ -201,7 +248,7 @@ def capture_site(browser: Browser) -> None:
     save(g, "34_error_404", full=False)
 
     # ---------- Клиент: Анна Лебедева ----------
-    a = new_page()
+    a = new_page(browser)
     login(a, "anna@demo.kivana.ru", c["DEMO_PASSWORD"], "/account")
     go(a, "/")
     shot(a, "07_home_client", "Кабинет")
@@ -256,26 +303,8 @@ def capture_site(browser: Browser) -> None:
     shot(a, "16_account_profile", "Смена пароля")
 
     # ---------- Администратор ----------
-    go(m, "/admin")
-    open_tab(m, "Все")
-    shot(m, "19_admin_bookings", "Статус и причины", full=True, rows="table.data-table tbody tr")
-
-    # Строка новой заявки Анны: по датам и имени (текст ячейки «№id» сливается с датой создания).
-    dates = f"{check_in:%d.%m.%Y} — {check_out:%d.%m.%Y}"
-    row = m.locator("table.data-table tbody tr", has_text=dates).filter(has_text="Анна Лебедева")
-    open_tab(m, "На разборе")
-    row.get_by_role("button", name="История").click()
-    expect(m.locator("tr.history")).to_be_visible()
-    shot(m, "20_admin_booking_detail", "Скрыть историю", full=True)
-
-    row.get_by_role("button", name="Подтвердить").click()
-    m.fill("#admin-reason", "Детскую кроватку поставим. Ночной администратор встретит вас и передаст ключи.")
-    shot(m, "21_admin_status_dialog", "Подтвердить бронь")
-    m.locator("dialog button[type=submit]").click()
-    expect(m.locator("dialog")).to_have_count(0)
-    open_tab(m, "Подтверждённые")
-    expect(row).to_contain_text("Подтверждена")
-    shot(m, "22_admin_status_changed", dates)
+    capture_admin_flow(m, check_in, check_out,
+                       "Детскую кроватку поставим. Ночной администратор встретит вас и передаст ключи.")
 
     go(m, "/admin/clients")
     shot(m, "23_admin_clients", "Поиск по имени, email или телефону", full=True, rows="tbody tr")
@@ -345,8 +374,10 @@ def main() -> None:
     parser.add_argument("--up", action="store_true", help="docker compose up -d --build и ожидание готовности")
     parser.add_argument("--site", action="store_true", help="скриншоты своего сайта")
     parser.add_argument("--analogs", action="store_true", help="скриншоты сайтов-аналогов")
+    parser.add_argument("--admin-flow", action="store_true",
+                        help="только кадры 19–22 (заявки администратора) на новой заявке Анны")
     args = parser.parse_args()
-    if not (args.site or args.analogs):
+    if not (args.site or args.analogs or args.admin_flow):
         args.site = args.analogs = True
 
     OUT.mkdir(parents=True, exist_ok=True)
@@ -354,12 +385,14 @@ def main() -> None:
     expect.set_options(timeout=30_000)
     if args.up:
         subprocess.run(["docker", "compose", "up", "-d", "--build"], cwd=ROOT, check=True)
-    if args.site:
+    if args.site or args.admin_flow:
         wait_ready()
     with sync_playwright() as p:
         browser = p.chromium.launch(args=["--lang=ru-RU"])  # формат дат в input type=date — русский
         if args.site:
             capture_site(browser)
+        elif args.admin_flow:
+            capture_admin_only(browser)
         if args.analogs:
             capture_analogs(browser)
         browser.close()

@@ -141,18 +141,20 @@ useHead({
                 <td data-label="Номер">
                   <NuxtLink :to="'/rooms/' + item.room.slug">{{ item.room.name }}</NuxtLink>
                 </td>
-                <td data-label="Гость">
+                <td data-label="Гость" class="guest">
                   <strong>{{ item.guest_name }}</strong>
                   <span v-if="item.user.crm_status !== 'regular'" class="tag crm">{{ CRM_LABELS[item.user.crm_status] }}</span><br>
-                  <a :href="'tel:' + item.phone.replace(/[^+\d]/g, '')">{{ item.phone }}</a><br>
-                  <a :href="'mailto:' + item.user.email">{{ item.user.email }}</a>
+                  <a class="nowrap" :href="'tel:' + item.phone.replace(/[^+\d]/g, '')">{{ item.phone }}</a><br>
+                  <!-- Узкий столбец переносит адрес после «@», а не посреди домена. -->
+                  <a :href="'mailto:' + item.user.email">{{ item.user.email.split('@')[0] }}@<wbr>{{ item.user.email.split('@')[1] }}</a>
                 </td>
                 <td data-label="Даты" class="nowrap">
                   {{ formatDate(item.check_in) }} — {{ formatDate(item.check_out) }}<br>
                   <span class="muted">{{ nightsLabel(item.nights) }}, гостей: {{ item.guests }}</span>
                 </td>
-                <td data-label="Сумма" class="nowrap">
-                  {{ formatRubles(item.total_price) }}
+                <td data-label="Сумма">
+                  <span class="nowrap">{{ formatRubles(item.total_price) }}</span>
+                  <!-- Строка скидки переносится после запятой, иначе код промокода раздувает столбец. -->
                   <template v-if="item.promo">
                     <br><span class="muted">−{{ formatRubles(item.discount) }}, {{ item.promo.code }}</span>
                   </template>
@@ -254,10 +256,9 @@ useHead({
   }
 }
 
-@media (min-width: 1280px) {
-  .reasons {
-    min-width: 220px;
-  }
+/* Длинный email не должен расширять таблицу: сначала перенос после «@», в крайнем случае — в любом месте. */
+.guest a {
+  overflow-wrap: anywhere;
 }
 
 .reasons ul {
