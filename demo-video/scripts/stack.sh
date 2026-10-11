@@ -80,14 +80,23 @@ native_backend_start() {
   wait_http "$API_URL/api/hotel" 60
 }
 
+# Сборка устарела, если её нет или исходники frontend менялись после неё (например, после git pull).
+frontend_stale() {
+  local out="$ROOT/frontend/.output/server/index.mjs"
+  [[ ! -f "$out" || "${FORCE_BUILD:-0}" == 1 ]] && return 0
+  [[ -n $(find "$ROOT/frontend/app" "$ROOT/frontend/public" "$ROOT/frontend/nuxt.config.ts" "$ROOT/frontend/package.json" \
+    -newer "$out" -print -quit) ]]
+}
+
 native_frontend_up() {
-  if curl -sf -o /dev/null --max-time 5 "$APP_URL/"; then return 0; fi
   if [[ ! -d "$ROOT/frontend/node_modules" ]]; then (cd "$ROOT/frontend" && npm ci --no-audit --no-fund); fi
   # Production-сборка: страницы открываются сразу, без компиляции на лету (меньше «мёртвых» пауз в кадре).
-  if [[ ! -f "$ROOT/frontend/.output/server/index.mjs" || "${FORCE_BUILD:-0}" == 1 ]]; then
+  if frontend_stale; then
+    if [[ -f "$WORK/frontend.pid" ]]; then kill "$(cat "$WORK/frontend.pid")" 2>/dev/null || true; rm -f "$WORK/frontend.pid"; sleep 1; fi
     log "собираю frontend (nuxt build)"
     (cd "$ROOT/frontend" && API_BASE="$API_URL" npx nuxt build >"$WORK/frontend-build.log" 2>&1)
   fi
+  if curl -sf -o /dev/null --max-time 5 "$APP_URL/"; then return 0; fi
   log "запускаю frontend"
   (cd "$ROOT/frontend" || exit 1
    PORT=3000 HOST=0.0.0.0 NUXT_PUBLIC_PASSWORD_MIN_LENGTH=15 nohup node .output/server/index.mjs </dev/null >"$WORK/frontend.log" 2>&1 &
